@@ -11,17 +11,16 @@ A PyTorch-based Vision-Language Model (VLA) implementation combining visual and 
 - **Positional Embeddings**: Learnable positional encoding for sequences
 - **Image Projection**: Efficient image-to-embedding projection layer
 - **Multi-camera BEV tokens** (optional): surround-view images are lifted to a metric bird's-eye view
-  by the [`lifting`](packages/lifting) package (TPVFormer, BEVFormer, Lift-Splat, Simple-BEV, TIIM,
+  by the [Halos-lift](https://github.com/basaanithanaveenkumar/Halos-lift) package (`import lifting`) (TPVFormer, BEVFormer, Lift-Splat, Simple-BEV, TIIM,
   all in pure PyTorch) and fed to the decoder as extra tokens
 
-## Multi-camera BEV scene tokens (`lifting`)
+## Multi-camera BEV scene tokens (Halos-lift)
 
-`packages/lifting` is a standalone, pip/uv-installable library. It is a uv workspace member, so
-`uv sync` installs it. To use it in other projects:
+[Halos-lift](https://github.com/basaanithanaveenkumar/Halos-lift) is a standalone library that is
+declared as a git dependency, so `uv sync` installs it. To use it in another project:
 
 ```bash
-# from this repository
-uv add "lifting @ git+https://github.com/basaanithanaveenkumar/Hale-VLA#subdirectory=packages/lifting"
+uv add "halos-lift @ git+https://github.com/basaanithanaveenkumar/Halos-lift"
 ```
 
 Enable BEV tokens in the VLA:
@@ -40,7 +39,7 @@ logits, actions = model(images, input_ids, attention_mask, states,
 
 `models/bev_encoder.py` (`BEVSceneEncoder`) turns the BEV map into `(X/4)·(Y/4)` tokens, which are
 prepended to the image patches. Any registered lifter name works for `bev_lifter`. See
-[`packages/lifting/README.md`](packages/lifting/README.md) for the library, its tests, and the
+the [Halos-lift README](https://github.com/basaanithanaveenkumar/Halos-lift) for the library, its tests, and the
 synthetic-scene verifier that checks each lifting technique.
 
 ## Project Structure

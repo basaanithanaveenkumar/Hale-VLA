@@ -34,17 +34,12 @@ dependencies = [
     "tqdm>=4.65.0",
     "opencv-python>=4.13.0.92",
     "matplotlib>=3.10.8",
-    "lifting",
+    "halos-lift",
 ]
 
-# `lifting` (pure-PyTorch BEV / TPV lifting) is vendored as a uv workspace member in
-# packages/lifting. Once it lives in its own repository, switch with:
-#   uv add "lifting @ git+https://github.com/basaanithanaveenkumar/lifting"
+# Halos-lift (import name `lifting`): pure-PyTorch BEV / TPV lifting.
 [tool.uv.sources]
-lifting = { workspace = true }
-
-[tool.uv.workspace]
-members = ["packages/lifting"]
+halos-lift = { git = "https://github.com/basaanithanaveenkumar/Halos-lift" }
 
 [project.optional-dependencies]
 dev = [
