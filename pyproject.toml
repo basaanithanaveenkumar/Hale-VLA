@@ -34,7 +34,17 @@ dependencies = [
     "tqdm>=4.65.0",
     "opencv-python>=4.13.0.92",
     "matplotlib>=3.10.8",
+    "lifting",
 ]
+
+# `lifting` (pure-PyTorch BEV / TPV lifting) is vendored as a uv workspace member in
+# packages/lifting. Once it lives in its own repository, switch with:
+#   uv add "lifting @ git+https://github.com/basaanithanaveenkumar/lifting"
+[tool.uv.sources]
+lifting = { workspace = true }
+
+[tool.uv.workspace]
+members = ["packages/lifting"]
 
 [project.optional-dependencies]
 dev = [

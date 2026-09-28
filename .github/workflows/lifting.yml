@@ -1,0 +1,26 @@
+name: lifting
+
+on:
+  push:
+    paths: ["packages/lifting/**", "src/Halo_VLA/models/bev_encoder.py", "src/Halo_VLA/models/halo_vla.py", "tests/test_bev_integration.py"]
+  pull_request:
+    paths: ["packages/lifting/**", "src/Halo_VLA/models/bev_encoder.py", "src/Halo_VLA/models/halo_vla.py", "tests/test_bev_integration.py"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.11"
+      - name: Install lifting (CPU torch)
+        run: |
+          uv venv
+          uv pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+          uv pip install -e "packages/lifting[dev,vision]"
+      - name: lifting test suite
+        working-directory: packages/lifting
+        run: ../../.venv/bin/python -m pytest -m "not slow" -q
+      - name: Halo-VLA BEV integration
+        run: .venv/bin/python -m pytest tests/test_bev_integration.py -q -o addopts=""

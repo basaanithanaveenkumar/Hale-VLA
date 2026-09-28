@@ -66,6 +66,16 @@ class HaloVLMConfig:
     state_dropout: float = 0.1
     state_use_layernorm: bool = True
 
+    # Multi-camera BEV scene encoder (optional, powered by the `lifting` package)
+    use_bev: bool = False
+    bev_lifter: str = "bevformer"        # any lifting.LIFTERS name
+    bev_num_cameras: int = 6
+    bev_image_size: tuple[int, int] = (224, 224)
+    bev_bounds: tuple[tuple[float, float], ...] = ((-25.6, 25.6), (-25.6, 25.6), (-2.0, 4.0))
+    bev_resolution: tuple[int, int, int] = (64, 64, 6)
+    bev_channels: int = 64
+    bev_token_pool: int = 4              # 64x64 BEV -> 16x16 = 256 tokens
+
     # System prompt
     system_prompt: str = (
         "You are a robotic VLA assistant. Given images and states, "
