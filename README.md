@@ -2,6 +2,17 @@
 
 A PyTorch-based Vision-Language Model (VLA) implementation combining visual and linguistic understanding.
 
+## Resources
+
+| | |
+|---|---|
+| Paper (arXiv source) | [`paper/main.tex`](paper/main.tex) — build with `make -C paper` |
+| Project page | [basaanithanaveenkumar.github.io/Hale-VLA](https://basaanithanaveenkumar.github.io/Hale-VLA/) ([source](project-page/index.html)) |
+| Documentation | [`docs/`](docs/README.md) — getting started, configuration, data, API |
+| Architecture diagrams | [`docs/architecture.md`](docs/architecture.md) (Mermaid) |
+| Blog | [Three tokens and a router: building a VLA from scratch](docs/blog/2026-09-28-building-a-vla-from-scratch.md) |
+| Claude Code skills | [`.claude/skills/`](.claude/skills) — `hale-vla-dev`, `hale-vla-train`, `hale-vla-extend`, `hale-publish` |
+
 ## Features
 
 - **Vision Transformer (ViT)**: State-of-the-art image encoding
@@ -114,10 +125,11 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ## Citation
 
 ```bibtex
-@software{halo_vla_2026,
-  title = {Halo-VLA: Vision-Language Assistant},
-  author = {Your Name},
-  year = {2026},
-  url = {https://github.com/yourusername/halo-vla}
+@misc{naveenkumar2026halevla,
+  title  = {Hale-VLA: An Interleaved Vision--Language--Action Transformer
+            with DeepSeek-Style Mixture-of-Experts, Built From Scratch},
+  author = {NaveenKumar, B A},
+  year   = {2026},
+  url    = {https://github.com/basaanithanaveenkumar/Hale-VLA}
 }
 ```
