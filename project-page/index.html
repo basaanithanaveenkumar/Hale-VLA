@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hale-VLA</title>
+<meta name="description" content="A from-scratch PyTorch VLA: ViT, MoE decoder, state encoder and action head driven by three special tokens.">
+<meta property="og:title" content="Hale-VLA: An Interleaved Vision–Language–Action Transformer with DeepSeek-Style MoE">
+<meta property="og:description" content="A from-scratch PyTorch VLA: ViT, MoE decoder, state encoder and action head driven by three special tokens.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#fbfaf7;--fg:#1d1d1f;--muted:#5b5b63;--card:#ffffff;--line:#e4e2dc;--accent:#2f5bd3;--accent-soft:#e8eefc;--code:#f3f2ee;--chip:#efeee9}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#111214;--fg:#ececee;--muted:#a0a0aa;--card:#1a1b1f;--line:#2c2d33;--accent:#8aa8ff;--accent-soft:#1e2640;--code:#1f2025;--chip:#24252b}}
+:root[data-theme="dark"]{--bg:#111214;--fg:#ececee;--muted:#a0a0aa;--card:#1a1b1f;--line:#2c2d33;--accent:#8aa8ff;--accent-soft:#1e2640;--code:#1f2025;--chip:#24252b}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font:17px/1.65 "Source Serif 4",Georgia,serif}
+.wrap{max-width:920px;margin:0 auto;padding:0 16px}
+header.hero{padding:64px 0 28px;text-align:center}
+.kicker{font:600 13px/1 Inter,system-ui,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+h1{font:700 clamp(30px,5.4vw,48px)/1.15 Inter,system-ui,sans-serif;margin:14px 0 10px;letter-spacing:-.02em}
+.subtitle{font-size:clamp(17px,2.4vw,21px);color:var(--muted);max-width:720px;margin:0 auto}
+.authors{margin:20px 0 4px;font:500 16px Inter,system-ui,sans-serif}
+.affil{color:var(--muted);font:14px Inter,system-ui,sans-serif}
+.buttons{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin:26px 0 8px}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:999px;background:var(--fg);color:var(--bg);text-decoration:none;font:600 14px Inter,system-ui,sans-serif}
+.btn.alt{background:transparent;color:var(--fg);border:1px solid var(--line)}
+.btn:hover{opacity:.88}
+section{padding:26px 0;border-top:1px solid var(--line)}
+h2{font:700 24px/1.3 Inter,system-ui,sans-serif;margin:0 0 14px;letter-spacing:-.01em}
+h3{font:650 17px/1.35 Inter,system-ui,sans-serif;margin:0 0 6px}
+p{margin:0 0 12px}
+.tldr{background:var(--accent-soft);border-radius:14px;padding:18px 20px;font-size:18px}
+.tldr b{font-family:Inter,system-ui,sans-serif}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
+.card p{font-size:15.5px;color:var(--muted);margin:0}
+figure{margin:0 0 18px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;overflow-x:auto}
+figcaption{font:14px/1.5 Inter,system-ui,sans-serif;color:var(--muted);margin-top:10px}
+.mermaid{display:flex;justify-content:center;min-width:0}
+.mermaid svg{max-width:100%;height:auto}
+pre{background:var(--code);border:1px solid var(--line);border-radius:12px;padding:14px 16px;overflow-x:auto;font:13.5px/1.55 "JetBrains Mono",ui-monospace,monospace;margin:0 0 12px}
+code{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:.9em}
+table{width:100%;border-collapse:collapse;font:15px/1.5 Inter,system-ui,sans-serif}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-weight:600}
+td code{background:var(--chip);padding:1px 6px;border-radius:6px}
+.tablewrap{overflow-x:auto}
+.note{font:14px/1.55 Inter,system-ui,sans-serif;color:var(--muted)}
+footer{padding:32px 0 48px;color:var(--muted);font:14px Inter,system-ui,sans-serif;text-align:center;border-top:1px solid var(--line)}
+a{color:var(--accent)}
+.theme{position:fixed;top:12px;right:12px;border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:999px;padding:6px 12px;font:13px Inter,system-ui,sans-serif;cursor:pointer}
+</style>
+</head>
+<body>
+<button class="theme" id="theme" aria-label="Toggle dark mode">Theme</button>
+<div class="wrap">
+<header class="hero">
+  <div class="kicker">Vision · Language · Action</div>
+  <h1>Hale-VLA: An Interleaved Vision–Language–Action Transformer with DeepSeek-Style MoE</h1>
+  <p class="subtitle">A compact vision–language–action model written from scratch in PyTorch. Three special tokens let one causal transformer read images and robot state, and write text and continuous action chunks.</p>
+  <div class="authors">B A NaveenKumar</div>
+  <div class="affil">Independent research · 2026</div>
+  <div class="buttons"><a class="btn" href="paper.pdf">Paper (PDF)</a><a class="btn alt" href="https://github.com/basaanithanaveenkumar/Hale-VLA">Code</a><a class="btn alt" href="https://github.com/basaanithanaveenkumar/Hale-VLA/tree/main/docs">Docs</a><a class="btn alt" href="https://github.com/basaanithanaveenkumar/Hale-VLA/blob/main/docs/blog/2026-09-28-building-a-vla-from-scratch.md">Blog</a></div>
+</header>
+<section><div class="tldr"><b>TL;DR.</b> Images are <em>prepended</em>, states are <em>injected in place</em>, and actions are <em>read out</em> from the hidden state of an <code>&lt;action&gt;</code> token. The decoder uses shared + routed SwiGLU experts. 356M parameters, trained on EO-Data1.5M with CE + masked-MSE.</div></section>
+<section><h2>Abstract</h2><p>Vision–language–action (VLA) models extend multimodal language models so that the same network that describes a scene can also emit robot actions. Most open VLAs are built by fine-tuning a large pretrained VLM, which makes the architecture hard to inspect and expensive to modify.</p><p>Hale-VLA is a compact VLA written from scratch whose every component (patch encoder, causal decoder, mixture-of-experts layers, proprioceptive state encoder and continuous action head) fits in a few hundred lines. It represents images, robot state and actions as three special tokens added to the Qwen2.5 vocabulary, so arbitrary interleavings of observations, dialogue and control are expressed as one chat transcript. Each decoder block uses a DeepSeekMoE-style layer with always-on shared experts and noisy top-k routed experts. The default configuration has 356M parameters, with about 58M decoder parameters active per token, and is trained end to end with next-token cross-entropy on assistant turns plus a masked regression loss on actions.</p></section>
+<section><h2>Highlights</h2><div class="grid"><div class="card"><h3>Unified token interface</h3><p><code>&lt;image&gt;</code>, <code>&lt;state&gt;</code> and <code>&lt;action&gt;</code> added to Qwen2.5 (ids 151665–151667). Any interleaving of frames, state, text and control is a single sequence.</p></div><div class="card"><h3>Three integration patterns</h3><p>Prepend for images (196 patches each), in-place injection for state, hidden-state read-out for actions.</p></div><div class="card"><h3>DeepSeek-style MoE</h3><p>2 shared + 8 routed SwiGLU experts, noisy top-2 routing, in all 12 decoder layers. The ViT uses 16 routed experts, top-4.</p></div><div class="card"><h3>Chunked continuous actions</h3><p>An MLP head maps each <code>&lt;action&gt;</code> hidden state to <code>[chunk × action_dim]</code>. No action binning in the vocabulary.</p></div><div class="card"><h3>EO-Data1.5M pipeline</h3><p>All 17 subsets (5 interleaved, 12 embodied QA), assistant-only supervision, per-batch padding of images, actions and states.</p></div><div class="card"><h3>Built to be read</h3><p>Every module is a small file with shape comments. Training renders videos of predictions against ground truth.</p></div></div></section>
+<section><h2>Architecture</h2><figure><div class="mermaid">flowchart TB
+  subgraph Inputs
+    IMG[&quot;Images&lt;br/&gt;[B, N, 3, 224, 224]&quot;]
+    TXT[&quot;Chat tokens&lt;br/&gt;with &amp;lt;image&amp;gt; &amp;lt;state&amp;gt; &amp;lt;action&amp;gt;&quot;]
+    ST[&quot;Robot state&lt;br/&gt;[B, N_state, 32]&quot;]
+  end
+
+  IMG --&gt; VIT[&quot;VisTransformer&lt;br/&gt;16×16 patches · 4 blocks · MoE FFN&quot;]
+  VIT --&gt; PROJ[&quot;ImageProjector&lt;br/&gt;512→128→256→512&quot;]
+  TXT --&gt; EMB[&quot;Token embedding&lt;br/&gt;151,668 × 512&quot;]
+  ST --&gt; SENC[&quot;StateEncoder&lt;br/&gt;32→256→512→512&quot;]
+
+  EMB --&gt; ZERO[&quot;zero &amp;lt;image&amp;gt; / &amp;lt;state&amp;gt; placeholders&quot;]
+  SENC --&gt; INJ[&quot;write state embeddings&lt;br/&gt;at &amp;lt;state&amp;gt; positions&quot;]
+  ZERO --&gt; INJ
+  PROJ --&gt; CAT[&quot;concat: [patches ; text]&quot;]
+  INJ --&gt; CAT
+  CAT --&gt; POS[&quot;+ learned positions (≤ 2000)&quot;]
+  POS --&gt; DEC[&quot;DecoderTransformer&lt;br/&gt;12 causal blocks · MHA + DeepSeekMoE&quot;]
+  DEC --&gt; LN[&quot;LayerNorm&quot;]
+  LN --&gt; LM[&quot;LMHead → logits&lt;br/&gt;[B, N·196 + L, V]&quot;]
+  LN --&gt; GATHER[&quot;gather hidden states at&lt;br/&gt;&amp;lt;action&amp;gt; positions (+ N·196 offset)&quot;]
+  GATHER --&gt; ACT[&quot;ActionDecoder&lt;br/&gt;512→512→256→chunk·action_dim&quot;]
+  ACT --&gt; OUT[&quot;actions&lt;br/&gt;[B, n_act, chunk, action_dim]&quot;]</div><figcaption><b>Figure 1.</b> System overview. Patches are prepended, state embeddings overwrite <code>&lt;state&gt;</code> slots, and hidden states at <code>&lt;action&gt;</code> positions are decoded into action chunks.</figcaption></figure><figure><div class="mermaid">flowchart TB
+  IDS[&quot;input_ids:  &amp;lt;image&amp;gt; Pick up &amp;lt;state&amp;gt; the cup &amp;lt;action&amp;gt;&quot;]
+  IDS --&gt;|&quot;&amp;lt;image&amp;gt; · prepend&quot;| P[&quot;replaced by 196 ViT patch embeddings&lt;br/&gt;placed before all text&quot;]
+  IDS --&gt;|&quot;&amp;lt;state&amp;gt; · in place&quot;| S[&quot;embedding overwritten by&lt;br/&gt;StateEncoder(state) at the same position&quot;]
+  IDS --&gt;|&quot;&amp;lt;action&amp;gt; · read out&quot;| A[&quot;hidden state after the decoder&lt;br/&gt;→ ActionDecoder → action chunk&quot;]</div><figcaption><b>Figure 2.</b> Each special token uses a different integration pattern.</figcaption></figure><figure><div class="mermaid">flowchart TB
+  X[&quot;x  [B, T, 512]&quot;] --&gt; N1[&quot;LayerNorm&quot;]
+  N1 --&gt; MHA[&quot;Causal multi-head attention&lt;br/&gt;16 heads × 32&quot;]
+  MHA --&gt; R1[&quot;+ residual&quot;]
+  X --&gt; R1
+  R1 --&gt; N2[&quot;LayerNorm&quot;]
+  N2 --&gt; ROUTER[&quot;NoiseBestKRouter&lt;br/&gt;logits + softplus-scaled noise (train)&lt;br/&gt;top-2 of 8 → softmax&quot;]
+  N2 --&gt; SH1[&quot;Shared expert 1&lt;br/&gt;SwiGLU 512→614→512&quot;]
+  N2 --&gt; SH2[&quot;Shared expert 2&quot;]
+  ROUTER -- &quot;p₁&quot; --&gt; E1[&quot;Routed expert i&quot;]
+  ROUTER -- &quot;p₂&quot; --&gt; E2[&quot;Routed expert j&quot;]
+  N2 --&gt; E1
+  N2 --&gt; E2
+  SH1 --&gt; SUM[&quot;Σ shared + p-weighted routed&quot;]
+  SH2 --&gt; SUM
+  E1 --&gt; SUM
+  E2 --&gt; SUM
+  SUM --&gt; R2[&quot;+ residual&quot;]
+  R1 --&gt; R2
+  R2 --&gt; Y[&quot;x&#x27;  [B, T, 512]&quot;]</div><figcaption><b>Figure 3.</b> Decoder block: pre-norm causal attention followed by DeepSeek-style MoE with shared and routed experts.</figcaption></figure><figure><div class="mermaid">sequenceDiagram
+  participant DL as EO dataloader
+  participant M as HaloVLM
+  participant L as Losses
+  participant O as AdamW + cosine LR
+  DL-&gt;&gt;M: images, input_ids, attention_mask, states
+  M--&gt;&gt;L: logits [B, N·196+L, V], action_preds
+  DL-&gt;&gt;L: labels (-100 outside assistant), actions, action_mask
+  L-&gt;&gt;L: CE on logits[:, N·196 : -1] vs labels[:, 1:]
+  L-&gt;&gt;L: masked MSE on flattened action chunks
+  L-&gt;&gt;O: total = CE + λ·MSE
+  O-&gt;&gt;M: clip grad (1.0), step, scheduler.step()</div><figcaption><b>Figure 4.</b> One training step: CE on text offset by the prepended patches, plus masked MSE on actions.</figcaption></figure></section>
+<section><h2>Parameter budget (default config, measured)</h2><div class="tablewrap"><table><thead><tr><th>Module</th><th>Parameters</th><th>Notes</th></tr></thead><tbody><tr><td>Vision encoder</td><td>72.7M</td><td>4 layers, MoE 16 routed / 2 shared, top-4</td></tr><tr><td>Image projector</td><td>0.23M</td><td>512→128→256→512</td></tr><tr><td>Token embedding</td><td>77.7M</td><td>V = 151,668</td></tr><tr><td>Position embedding</td><td>1.0M</td><td>2,000 positions</td></tr><tr><td>Decoder</td><td>125.9M</td><td>12 layers, MoE 8 routed / 2 shared, top-2 · ≈58M active/token</td></tr><tr><td>LM head</td><td>77.7M</td><td>untied</td></tr><tr><td>State encoder</td><td>0.40M</td><td>32→256→512→512</td></tr><tr><td>Action decoder</td><td>0.40M</td><td>512→512→256→chunk·dim</td></tr><tr><td><b>Total</b></td><td><b>355.9M</b></td><td></td></tr></tbody></table></div></section>
+<section><h2>Status</h2><p class='note'>The architecture, data pipeline and training loop are released. Benchmark results (embodied-QA accuracy, action MSE, ablations) are in progress and will be added to the paper and this page once runs are complete. No results are reported yet.</p></section>
+<section><h2>Quick start</h2><pre><code>git clone https://github.com/basaanithanaveenkumar/Hale-VLA &amp;&amp; cd Hale-VLA
+uv venv &amp;&amp; source .venv/bin/activate &amp;&amp; uv pip install -e &quot;.[dev]&quot;
+python scripts/train.py --subset interleave-temporal --max_samples 100 --action_dim 32</code></pre><pre><code>import torch
+from config import HaloVLMConfig
+from models.halo_vla import HaloVLM          # PYTHONPATH=.:src/Halo_VLA
+
+cfg = HaloVLMConfig()
+model = HaloVLM(cfg).eval()
+ids = torch.tensor([[cfg.image_token_id, 1, 2, cfg.state_token_id, 3, cfg.action_token_id]])
+logits, actions = model(torch.randn(1, 1, 3, 224, 224), ids, torch.ones_like(ids),
+                        torch.randn(1, 1, cfg.state_dim))
+# logits: [1, 202, 151668]   actions: [1, 1, 1, 7]</code></pre></section>
+<section><h2>Citation</h2><pre><code>@misc{naveenkumar2026halevla,
+  title  = {Hale-VLA: An Interleaved Vision--Language--Action Transformer
+            with DeepSeek-Style Mixture-of-Experts, Built From Scratch},
+  author = {NaveenKumar, B A},
+  year   = {2026},
+  url    = {https://github.com/basaanithanaveenkumar/Hale-VLA}
+}</code></pre></section>
+</div>
+<footer>Hale-VLA · <a href="https://github.com/basaanithanaveenkumar/Hale-VLA">Source on GitHub</a> · MIT License</footer>
+<script type="module">
+import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+const root = document.documentElement;
+const saved = (() => { try { return localStorage.getItem('theme'); } catch (e) { return null; } })();
+if (saved) root.dataset.theme = saved;
+const isDark = () => root.dataset.theme ? root.dataset.theme === 'dark'
+  : matchMedia('(prefers-color-scheme: dark)').matches;
+const sources = [...document.querySelectorAll('.mermaid')].map(el => el.textContent);
+async function render() {
+  mermaid.initialize({ startOnLoad: false, theme: isDark() ? 'dark' : 'neutral', securityLevel: 'strict',
+    flowchart: { curve: 'basis', htmlLabels: true } });
+  const els = document.querySelectorAll('.mermaid');
+  els.forEach((el, i) => { el.removeAttribute('data-processed'); el.textContent = sources[i]; });
+  await mermaid.run({ nodes: els });
+}
+document.getElementById('theme').addEventListener('click', () => {
+  root.dataset.theme = isDark() ? 'light' : 'dark';
+  try { localStorage.setItem('theme', root.dataset.theme); } catch (e) {}
+  render();
+});
+render();
+</script>
+</body>
+</html>
