@@ -1,0 +1,23 @@
+name: bev-integration
+
+on:
+  push:
+    paths: ["src/Halo_VLA/models/bev_encoder.py", "src/Halo_VLA/models/halo_vla.py", "config/model_config.py", "tests/test_bev_integration.py", "pyproject.toml"]
+  pull_request:
+    paths: ["src/Halo_VLA/models/bev_encoder.py", "src/Halo_VLA/models/halo_vla.py", "config/model_config.py", "tests/test_bev_integration.py", "pyproject.toml"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.11"
+      - name: Install torch (CPU) + Halos-lift
+        run: |
+          uv venv
+          uv pip install torch --index-url https://download.pytorch.org/whl/cpu
+          uv pip install pytest "halos-lift @ git+https://github.com/basaanithanaveenkumar/Halos-lift"
+      - name: Halo-VLA BEV integration tests
+        run: .venv/bin/python -m pytest tests/test_bev_integration.py -q -o addopts=""

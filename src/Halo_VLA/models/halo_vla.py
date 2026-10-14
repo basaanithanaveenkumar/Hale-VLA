@@ -51,9 +51,14 @@ class HaloVLM(nn.Module):
         )
         self.state_encoder = StateEncoder(config=network_config)
         self.action_decoder = ActionDecoder(config=network_config)
-    
+        self.bev_encoder = None
+        if network_config.use_bev:
+            from models.bev_encoder import BEVSceneEncoder
 
-    def forward(self, images, input_ids, attention_mask, states):
+            self.bev_encoder = BEVSceneEncoder.from_config(network_config)
+
+
+    def forward(self, images, input_ids, attention_mask, states, bev_images=None, bev_cameras=None):
         """
         Forward pass with interleaved multi-image, state-injection, and
         action-decoding support.
@@ -71,6 +76,10 @@ class HaloVLM(nn.Module):
             attention_mask: [B, seq_len]          — 1 for real tokens, 0 pad.
             states:         [B, N_state, state_dim] — proprioceptive states,
                             one per <state> token.
+            bev_images:     optional [B, N_cam, 3, H, W] surround-view images
+                            (requires config.use_bev). Lifted to BEV tokens
+                            that are prepended before the image patches.
+            bev_cameras:    optional lifting.Cameras calibration of bev_images.
 
         Returns:
             logits:         [B, total_len, vocab_size] — next-token logits.
@@ -148,7 +157,17 @@ class HaloVLM(nn.Module):
         #    sequence so the decoder can attend to visual context first.
         #    combined_embeds → [B, N_img*num_patches + seq_len, emb_dim]
         # ------------------------------------------------------------------ #
-        combined_embeds = torch.cat([img_proj, text_embeds], dim=1)
+        #    Optional BEV scene tokens (multi-camera -> bird's-eye view) go
+        #    first, so they act as a metric "map" context for everything else.
+        prefix = [img_proj]
+        if bev_images is not None:
+            if self.bev_encoder is None:
+                raise ValueError("bev_images given but HaloVLMConfig.use_bev is False")
+            if bev_cameras is None:
+                raise ValueError("bev_images requires bev_cameras (lifting.Cameras)")
+            prefix.insert(0, self.bev_encoder(bev_images, bev_cameras))  # [B, T_bev, emb_dim]
+        prefix_embeds = torch.cat(prefix, dim=1)
+        combined_embeds = torch.cat([prefix_embeds, text_embeds], dim=1)
 
         # ------------------------------------------------------------------ #
         # 6. POSITIONAL EMBEDDINGS — add learned positions over the full
@@ -180,7 +199,7 @@ class HaloVLM(nn.Module):
         #    action_preds → [B, n_action_tokens, chunk_size, action_dim]
         #    Returns None if no <action> tokens are present.
         # ------------------------------------------------------------------ #
-        num_prepended = img_proj.size(1)  # N_img * num_patches
+        num_prepended = prefix_embeds.size(1)  # (BEV tokens +) N_img * num_patches
         action_mask = (input_ids == action_token_id)           # [B, seq_len]
         n_action_tokens = action_mask.sum(dim=1).max().item()  # scalar
 

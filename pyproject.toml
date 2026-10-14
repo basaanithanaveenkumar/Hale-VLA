@@ -34,7 +34,12 @@ dependencies = [
     "tqdm>=4.65.0",
     "opencv-python>=4.13.0.92",
     "matplotlib>=3.10.8",
+    "halos-lift",
 ]
+
+# Halos-lift (import name `lifting`): pure-PyTorch BEV / TPV lifting.
+[tool.uv.sources]
+halos-lift = { git = "https://github.com/basaanithanaveenkumar/Halos-lift" }
 
 [project.optional-dependencies]
 dev = [
