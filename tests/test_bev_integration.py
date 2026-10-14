@@ -57,11 +57,14 @@ def test_halo_vlm_with_bev_tokens(scene: SceneBatch) -> None:
     model = HaloVLM(cfg)
     ids = torch.tensor([[cfg.image_token_id, 5, 6, cfg.state_token_id, cfg.action_token_id]] * 2)
     args = (torch.rand(2, 1, 3, 32, 32), ids, torch.ones_like(ids), torch.rand(2, 1, cfg.state_dim))
-    logits_plain, actions_plain = model(*args)
-    logits, actions = model(*args, bev_images=scene.images, bev_cameras=scene.cameras)
+    logits_plain, hiddens_plain = model(*args)
+    logits, hiddens = model(*args, bev_images=scene.images, bev_cameras=scene.cameras)
     bev_tokens = model.bev_encoder.num_tokens
     assert logits.shape[1] == logits_plain.shape[1] + bev_tokens
-    assert actions.shape == actions_plain.shape == (2, 1, cfg.action_chunk_size, cfg.action_dim)
+    # forward returns the decoder states at <halo_action>; the flow decoder turns them into chunks
+    assert hiddens.shape == hiddens_plain.shape == (2, 1, cfg.emb_dim)
+    actions = model.sample_actions(hiddens, num_steps=2)
+    assert actions.shape == (2, 1, cfg.action_chunk_size, cfg.action_dim)
 
 
 def test_bev_inputs_require_use_bev(scene: SceneBatch) -> None:

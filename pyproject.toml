@@ -35,6 +35,7 @@ dependencies = [
     "opencv-python>=4.13.0.92",
     "matplotlib>=3.10.8",
     "halos-lift",
+    "loguru>=0.7.3",
 ]
 
 # Halos-lift (import name `lifting`): pure-PyTorch BEV / TPV lifting.
