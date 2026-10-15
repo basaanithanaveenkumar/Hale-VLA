@@ -1,0 +1,17 @@
+# ============================================================
+# Halo-VLA  -  BLIP-2 Q-Former projector: 32 learned queries per image instead of 196 patches.
+# ============================================================
+inherits: base.yaml
+variant: halo_vla_qformer
+
+model:
+  vision:
+    projector_type: qformer
+    qformer:
+      num_queries: 32
+      hidden_dim: 768
+      num_layers: 4
+      num_heads: 12
+      cross_attention_freq: 2     # BLIP-2: cross-attend every other layer
+      ffn_mult: 4
+      dropout: 0.1

@@ -1,0 +1,17 @@
+# ============================================================
+# Halo-VLA  -  Flamingo-style gated cross-attention projector (fixed number of latents per image).
+# ============================================================
+inherits: base.yaml
+variant: halo_vla_gated_xattn
+
+model:
+  vision:
+    projector_type: gated_cross_attention
+    gated_cross_attention:
+      num_latents: 64
+      hidden_dim: 768
+      num_layers: 2
+      num_heads: 12
+      ffn_mult: 4
+      dropout: 0.0
+      gate_init: 0.0              # Flamingo identity start: images fade in as the gates open

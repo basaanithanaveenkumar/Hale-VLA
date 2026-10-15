@@ -30,19 +30,22 @@ the export above.
 
 | Path | What it is |
 |---|---|
-| `config/model_config.py` | `HaloVLMConfig` — every hyper-parameter (dims, MoE, action/state heads) |
-| `config/special_tokens.json` | `<image>`=151665, `<action>`=151666, `<state>`=151667 on top of the Qwen2.5 tokenizer |
-| `src/Halo_VLA/models/halo_vla.py` | `HaloVLM.forward(images, input_ids, attention_mask, states)` → `(logits, action_preds)` |
-| `src/Halo_VLA/models/vit.py` | `PatchEmb` + `VisTransformer` (16x16 patches, learned pos-emb) |
-| `src/Halo_VLA/models/transformer.py` | `HeadAttn`, `MultiHeadAttn`, pre-norm `TransformerBlock`, `DecoderTransformer` |
-| `src/Halo_VLA/models/moe.py` | `NoiseBestKRouter`, SwiGLU `Expert`, `DeepseekMoE` (shared + routed experts) |
-| `src/Halo_VLA/models/state_encoder.py` / `action_decoder.py` | MLP heads for proprioception in and continuous actions out |
-| `src/Halo_VLA/models/image_proj.py` | 3-layer MLP vision→LLM projector |
-| `dataloader/eo_dataset.py` | `EODataset`, `eo_collate_fn`, `build_eo_dataloader` for IPEC-COMMUNITY/EO-Data1.5M |
-| `scripts/train.py` / `inference.py` / `visualize.py` | training loop, generation, video visualisation |
-| `utils/param_count.py` | `log_module_parameters` |
+| `config/model_config.py` | `HaloVLMConfig`: every hyper-parameter (vision, decoder / LLM, BEV, action, world model, dual system) |
+| `config/run_config.py`, `config/sections/` | YAML run-config schema (`scripts/train.py --config`), Hale-VLM layout |
+| `config/special_tokens.json` | `<image>`, `<halo_action>`, `<state>`, `<halo_world_video>` on top of the cosmo2 tokenizer (ids rewritten from the LLM's tokenizer when `llm_backbone` is set) |
+| `src/Halo_VLA/models/halo_vla.py` | `HaloVLM.forward(...)` → `(logits, action_hiddens, visual_context_emb, world_video_query_hiddens)`; `sample_actions`, `compute_flow_loss`, `encode_sequence` |
+| `src/Halo_VLA/models/vision_encoders.py`, `vit.py`, `image_proj.py` | ViT / SigLIP / CLIP / HaleBlocks encoders; MLP / Q-Former / gated cross-attention projectors |
+| `src/Halo_VLA/models/language_decoder.py` | pretrained HaleBlocks LLM as the decoder (LoRA / full / frozen) |
+| `src/Halo_VLA/models/transformer.py`, `moe.py` | built-in decoder: pre-norm blocks with DeepSeekMoE FFNs |
+| `src/Halo_VLA/models/bev_encoder.py` | multi-camera BEV scene tokens (Halos-lift `lifting`) |
+| `src/Halo_VLA/models/flow_action_decoder.py`, `state_encoder.py` | flow-matching action head, proprioception encoder |
+| `src/Halo_VLA/models/dit_frame_prediction.py` | optional DiT world model (future frames) |
+| `src/Halo_VLA/dual_system/` | dual-system VLA (System 2 / latent / System 1 / controller) |
+| `src/Halo_VLA/training/` | `HaloVLATrainingStep`, evaluator, DDP / Ray / WebDataset helpers |
+| `dataloader/` | EO-Data1.5M, DROID, AIRoA MoMa loaders; `stages/` dataset registries |
+| `scripts/train.py` / `inference.py` / `visualize.py` / `train_{reinforce,grpo,dpo,dreamer}.py` | training, generation, visualisation, RL |
 
-`vlm.py` and `ha_vlm.py` are older prototypes and are not used by the training scripts.
+`vlm.py`, `ha_vlm.py` and `action_decoder.py` are older prototypes, not used by `HaloVLM`.
 
 ## Smoke test (CPU, ~20 s)
 
@@ -51,31 +54,27 @@ PYTHONPATH=.:src/Halo_VLA python - <<'PY'
 import torch
 from config import HaloVLMConfig
 from models.halo_vla import HaloVLM
-c = HaloVLMConfig()
+c = HaloVLMConfig(enable_visual_dit=False)
 m = HaloVLM(c).eval()
 ids = torch.tensor([[c.image_token_id, 1, 2, c.state_token_id, 3, c.action_token_id]])
-logits, acts = m(torch.randn(1, 1, 3, 224, 224), ids, torch.ones_like(ids), torch.randn(1, 1, c.state_dim))
-print(logits.shape, acts.shape)   # [1, 202, 151668]  [1, 1, 1, 7]
+logits, act_h, _, _ = m(torch.randn(1, 1, 3, 224, 224), ids, torch.ones_like(ids), torch.randn(1, 1, c.state_dim))
+print(logits.shape, m.sample_actions(act_h).shape)   # [1, 202, 49156]  [1, 1, 16, 7]
 PY
 ```
 
-Default config is ~356M parameters (≈155M of them are the tied-size token embedding
-and LM head over the 151,668-token vocabulary).
+Or a whole training run: `python scripts/train.py --config configs/overfit.yaml`.
 
 ## Things that surprise people
 
-- Image patches are **prepended** to the sequence (196 per 224px image), so logits are
-  `[B, N_img*196 + seq_len, V]`. Anything that indexes text positions must offset by
-  `num_prepended = N_img * num_patches` (see `compute_language_loss` in `scripts/train.py`).
-- `<state>` tokens are replaced **in place**; `<action>` tokens stay as text tokens and
-  their hidden states are read out after the decoder.
+- BEV tokens (optional) and image patches are **prepended** to the sequence (196 per 224px
+  image with the MLP projector), so logits are `[B, T_bev + N_img*P + seq_len, V]`. Anything
+  that indexes text positions must offset by `num_prepended = logits.size(1) - input_ids.size(1)`
+  (see `HaloVLATrainingStep`).
+- `<state>` tokens are replaced **in place**; `<halo_action>` / `<halo_world_video>` tokens stay
+  as text tokens and their hidden states are read out after the decoder.
 - `VisTransformer` builds `TransformerBlock` with its defaults, so the ViT also uses a
   `DeepseekMoE` FFN (16 routed experts, top-4) — not the MLP `vit_mlp_dim` suggests.
-- `attention_mask` is accepted but not applied inside attention; the decoder uses a
-  causal mask only, so right-padding is safe but left-padding is not.
 - `HeadAttn` scales scores by `1/sqrt(emb_dim)`, not `1/sqrt(head_size)`.
-- `HaloVLM.forward` prints the decoder sequence length every call; silence it before
-  benchmarking.
 - `moe.BestKRouter` and `transformer.SelfAttn` contain bugs but are unused; don't wire
   them in without fixing them.
 
@@ -85,5 +84,5 @@ and LM head over the 151,668-token vocabulary).
 black --check . && ruff check . && pytest
 ```
 
-`tests/test_models.py` is currently empty — add tests beside any model change
-(shape tests with a tiny config: `emb_dim=64, dec_num_layers=2, vit_num_layers=1`).
+Run `pytest -o addopts=""` (offline, CPU). Add tests beside any model change, using a tiny
+config (`emb_dim=64, dec_num_layers=1, vit_num_layers=1, use_moe=False, enable_visual_dit=False`).

@@ -8,24 +8,27 @@ description: Add a new modality token, encoder, action head or config option to 
 Every new input or output travels the same path. Touch all of these, in order:
 
 1. **Special token** — add the string and id to `config/special_tokens.json`
-   (next free id is 151668) and bump `vocab_size_with_custom_tokens`.
+   (next free id after `<halo_world_video>`) and bump the vocabulary size.
    Add a getter in `config/tokens.py` (`get_all_custom_tokens` must list it so the
    tokenizer learns it).
 2. **Config** — add fields to `HaloVLMConfig` (`config/model_config.py`), including the new
-   `*_token_id` and `vocab_size`. Keep defaults backwards compatible.
+   `*_token_id` and `vocab_size`. Keep defaults backwards compatible. Expose them in the YAML
+   schema (`config/sections/`, `OVERRIDES` or `ARGS`) and in `configs/base.yaml`; the drift
+   tests in `tests/test_run_config.py` fail otherwise.
 3. **Module** — new file in `src/Halo_VLA/models/`, taking `config: HaloVLMConfig | None`
    and `**kwargs` like `StateEncoder`/`ActionDecoder`. Export it in `models/__init__.py`.
 4. **Forward** — in `HaloVLM.forward` choose one of the existing patterns:
-   - *prepend* (like images): encode, concatenate before `text_embeds`, and add to
-     `num_prepended` so action readout and the LM loss stay aligned;
+   - *prepend* (like images and BEV tokens): encode in `_embed_inputs`, concatenate before
+     `text_embeds`, and add to `num_prepended` so action readout and the LM loss stay aligned;
    - *in-place* (like `<state>`): zero the placeholder embedding and write the encoding
      at the token position;
    - *read-out* (like `<action>`): gather `transformer_out` at token positions, offset by
      `num_prepended`, and decode.
 5. **Data** — emit the placeholder in `EODataset` text and return the tensor from
    `__getitem__`; pad it in `eo_collate_fn`.
-6. **Loss** — add a term in `scripts/train.py` with its own `--*_loss_weight` flag.
-7. **Tests** — shape test in `tests/test_models.py` with a tiny config.
+6. **Loss** — add a term in `HaloVLATrainingStep` (`src/Halo_VLA/training/training_step.py`)
+   with its own `--*_loss_weight` flag (and YAML field).
+7. **Tests** — a test file in `tests/` with a tiny config (see `tests/test_bev_integration.py`).
 8. **Docs** — update `docs/architecture.md` (Mermaid) and the config table in
    `docs/configuration.md`.
 

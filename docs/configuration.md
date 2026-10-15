@@ -1,69 +1,142 @@
 # Configuration
 
-All model hyper-parameters live in `HaloVLMConfig` (`config/model_config.py`). Pass a
-config object or keyword overrides:
+A run is configured in two layers:
 
-```python
-HaloVLM(HaloVLMConfig(emb_dim=256, dec_num_layers=6))
-HaloVLM(emb_dim=256, dec_num_layers=6)          # same thing
+* **YAML run configs** (`configs/*.yaml`, schema `config/run_config.py::VLARunConfig`). They use
+  the same layout and loader as Hale-VLM: `model.vision`, `model.llm`, `model.dual_system`, ...,
+  with `inherits:`. `scripts/train.py --config <yaml>` reads one, and command-line flags override it.
+* **`HaloVLMConfig`** (`config/model_config.py`), the model dataclass every run builds. YAML keys
+  without a CLI flag (architecture sizes) are set on it directly, as is `--model_option KEY=VALUE`.
+
+## YAML run configs
+
+```bash
+python scripts/train.py --config configs/base.yaml                      # every default, spelled out
+python scripts/train.py --config configs/overfit.yaml                   # CPU smoke test
+python scripts/train.py --config configs/dual_system/openhelix.yaml --dual_system_option async_steps=60
+python scripts/train.py --config configs/examples/llm_qwen3_5_4b_base.yaml --epochs 20
 ```
 
-## Model (`HaloVLMConfig`)
+```yaml
+inherits: base.yaml               # up to two levels of inheritance (child -> parent -> grandparent)
+variant: my_run
+device: cuda
+model:
+  emb_dim: 512
+  vision:   {encoder: siglip, projector_type: qformer, qformer: {num_queries: 32}}
+  llm:      {backbone: gemma4-e4b, use_lora: true, lora_r: 16, attn_implementation: eager}
+  action:   {action_dim: 7, state_dim: 8, chunk_size: 16}
+  world_model: {enabled: true, num_predict_frames: 5}
+  dual_system: {preset: openhelix, async_steps: 10}
+train:  {epochs: 20, batch_size: 8, lr: 1.0e-4, checkpoint: {dir: checkpoints/run1}, ray: {enabled: false}}
+data:   {dataset: droid, droid: {data_root: /data/droid_100}, webdataset: {enabled: false}}
+eval:   {val_fraction: 0.05}
+logging: {tensorboard_dir: runs}
+viz:    {every_n_steps: 100}
+```
+
+| section | contents | reaches |
+|---|---|---|
+| `model` | `emb_dim`, `decoder`, `moe`, `vision` (`vit` / `qformer` / `gated_cross_attention` / `local_backbone`), `bev` (multi-camera BEV tokens), `llm`, `action` (+ `flow`), `world_model` (+ `dit`), `dual_system` | CLI flags + `HaloVLMConfig` |
+| `train` | epochs, batch size, optimiser, `resume`, `checkpoint`, `ray` | CLI flags |
+| `data` | `dataset` (`eo` / `moma` / `droid`), `droid`, `moma`, `webdataset` | CLI flags |
+| `eval`, `logging`, `viz` | validation split, TensorBoard, training GIFs | CLI flags |
+
+Rules:
+
+* **Validation.** Every key is validated: unknown keys, unknown LLM backbones, bad encoders and
+  invalid dual-system combinations fail at load time.
+* **Precedence.** Only keys present in the YAML chain are forwarded. Anything else keeps the
+  script's or the dataclass's own default, and command-line flags override the YAML.
+* **No drift.** `configs/base.yaml` equals the CLI defaults exactly, and the schema's defaults are
+  tested against both the CLI and `HaloVLMConfig`.
+* **`model.llm`.** Same fields as Hale-VLM's (`backbone`, `use_lora` > `freeze_llm` > full,
+  `lora_*`, `checkpoint`). `backbone: null` keeps the built-in decoder.
+* **`model.dual_system`.** `preset` (`none`, `basic`, `lcb`, `dp_vla`, `hirt`, `robodual`,
+  `dexvla`, `openhelix`, `custom`) plus any preset field as an override. `--dual_system_option`
+  flags merge on top. See `docs/dual_system.md`.
+* **Provenance.** The resolved YAML (inheritance applied, plus the command line) is saved as
+  `<ckpt_dir>/run_config.yaml`.
+
+Shipped configs:
+
+| file | what |
+|---|---|
+| `configs/base.yaml` | every field with its default |
+| `configs/overfit.yaml` | small model, 16 samples, no DiT: smoke test |
+| `configs/halo_vla_qformer.yaml`, `halo_vla_gated_xattn.yaml` | Q-Former / gated cross-attention projectors |
+| `configs/halo_vla_flow_matching.yaml` | larger flow head, longer schedule, validation |
+| `configs/dual_system/{basic,lcb,dp_vla,hirt,robodual,dexvla,openhelix,custom_middle_layer}.yaml` | dual-system presets |
+| `configs/examples/llm_qwen3_5_4b_base.yaml`, `llm_gemma4_e4b.yaml`, `llm_cosmos_reason2_2b.yaml` | 2026 LLM backbones (multimodal text towers) |
+| `configs/examples/ray_webdataset.yaml` | Ray Train + WebDataset shards |
+| `configs/examples/bev_tokens.yaml` | multi-camera BEV scene tokens (Halos-lift) |
+| `configs/roadmap/` | specifications whose code paths do not exist yet (stage datasets, simulator eval, deployment, GWM); not loadable, see its README |
+
+Needs HaleBlocks: `uv sync --extra config`.
+
+## `HaloVLMConfig`
+
+### Backbone
 
 | Field | Default | Meaning |
 |---|---|---|
-| `vocab_size` | 151668 | Qwen2.5 vocabulary + 3 custom tokens |
-| `image_token_id` / `action_token_id` / `state_token_id` | 151665 / 151666 / 151667 | must match `config/special_tokens.json` |
-| `emb_dim` | 512 | shared width of ViT, decoder and heads |
-| `img_size`, `patch_size`, `in_chans` | 224, 16, 3 | → 196 patches per image |
-| `vit_num_layers`, `vit_num_heads` | 4, 16 | vision tower depth / heads |
-| `vit_mlp_dim`, `vit_drop` | 512, 0.0 | only used if the ViT is built dense |
-| `dec_num_layers`, `dec_num_heads` | 12, 16 | decoder depth / heads |
-| `dec_mlp_dim`, `dec_drop` | 512, 0.0 | dense FFN width (when `use_moe=False`) / dropout |
-| `use_moe` | True | DeepSeekMoE FFN in decoder blocks |
-| `moe_hid_scale` | 1.2 | expert hidden width = `round(emb_dim * scale)` |
-| `moe_num_routed_experts` | 8 | routed experts per layer |
-| `moe_top_k` | 2 | routed experts used per token |
-| `moe_num_shared_experts` | 2 | always-on experts per layer |
-| `max_position_embeddings` | 2000 | learned absolute positions over patches + text |
-| `proj_vision_dim`, `proj_llm_dim` | None → `emb_dim` | image projector in/out widths |
-| `action_dim` | 7 | action dimensions (use 32 for EO-Data) |
-| `action_hidden_dims` | (512, 256) | action MLP hidden widths |
-| `action_chunk_size` | 1 | future steps predicted per `<action>` token |
-| `action_dropout`, `action_use_layernorm` | 0.1, True | action MLP regularisation |
-| `state_dim` | 32 | proprioceptive state size |
-| `state_hidden_dims` | (256, 512) | state MLP hidden widths |
-| `state_dropout`, `state_use_layernorm` | 0.1, True | state MLP regularisation |
-| `system_prompt` | robotic assistant prompt | inserted at the start of each transcript |
+| `vocab_size` | 49156 | cosmo2 tokenizer (49,152) + 4 special tokens |
+| `image_token_id` / `action_token_id` / `state_token_id` / `world_video_token_id` | 49152 / 49153 / 49154 / 49155 | `<image>`, `<halo_action>`, `<state>`, `<halo_world_video>` |
+| `emb_dim` | 512 | model width |
+| `emb_factor_dim` | 128 | reserved for factored embeddings, **not implemented yet** |
+| `img_size`, `patch_size` | 224, 16 | 196 patches per frame |
+| `vit_num_layers`, `vit_num_heads` | 6, 16 | dense ViT |
+| `dec_num_layers`, `dec_num_heads` | 8, 16 | causal decoder |
+| `use_moe`, `moe_num_routed_experts`, `moe_top_k`, `moe_num_shared_experts`, `moe_hid_scale` | True, 6, 2, 2, 1.2 | DeepSeekMoE FFN |
+| `max_position_embeddings` | 2000 | learned positions |
+| `gradient_checkpointing` | True | recompute decoder activations |
 
-## Training script (`scripts/train.py`)
+### Action (flow matching)
+
+| Field | Default | Meaning |
+|---|---|---|
+| `action_dim` | 7 | per-step action size (the training CLI defaults to 32) |
+| `action_chunk_size` | 16 | steps per `<halo_action>` token |
+| `flow_hidden_dim` | 1024 | velocity MLP width |
+| `flow_time_embed_dim` | 128 | sinusoidal time embedding |
+| `flow_num_ode_steps` | 24 | Euler steps at inference |
+| `state_dim`, `state_hidden_dims` | 32, (256, 512) | state encoder |
+
+### World model (DiT)
+
+| Field | Default | Meaning |
+|---|---|---|
+| `enable_visual_dit` | True | build the DiT head |
+| `num_visual_predict_frames` | 5 | future frames (one world-action token each) |
+| `dit_patch_size` | 8 | 784 tokens at 224 px |
+| `dit_hidden_size`, `dit_depth`, `dit_num_heads`, `dit_mlp_ratio` | 512, 8, 8, 4.0 | DiT size |
+| `dit_time_freq_dim` | 512 | timestep frequency embedding |
+| `dit_max_resolution` | 224 | pixel resolution |
+| `dit_num_sample_steps` | 75 | sampling steps |
+| `visual_loss_weight` | 8.0 | λ_v in the total loss |
+| `depth_channels`, `flow_channels`, `dit_depth_*`, `dit_flow_*` | — | reserved for depth / optical-flow heads |
+
+## Training flags (`scripts/train.py`)
 
 | Flag | Default | Meaning |
 |---|---|---|
+| `--dataset` | `eo` | `eo` or `moma` |
 | `--subset` | `interleave-temporal` | EO-Data1.5M subset |
-| `--batch_size` | 2 | |
-| `--num_workers` | 2 | dataloader workers |
-| `--max_seq_len` | 512 | text tokens (images add 196 each on top) |
-| `--action_dim`, `--state_dim` | 32, 32 | override the config |
-| `--action_chunk_size` | 1 | |
-| `--max_samples` | 100 | cap dataset size for quick runs |
-| `--epochs` | 5 | |
-| `--lr`, `--weight_decay` | 1e-4, 0.01 | AdamW |
-| `--grad_clip` | 1.0 | max grad norm |
-| `--action_loss_weight` | 1.0 | λ in `L = CE + λ·MSE` |
-| `--device` | cuda if available | |
-| `--log_every`, `--save_every` | 10 steps, 1 epoch | |
-| `--ckpt_dir` | `checkpoints` | |
-| `--vis_every`, `--vis_max_videos`, `--vis_min_frames` | 100, 4, 3 | training-time video rendering |
-
-## Special tokens (`config/special_tokens.json`)
-
-```json
-{
-  "image_token": "<image>", "action_token": "<action>", "state_token": "<state>",
-  "token_ids": {"image_token_id": 151665, "action_token_id": 151666, "state_token_id": 151667},
-  "base_vocab_size": 151643,
-  "vocab_size_with_custom_tokens": 151668,
-  "tokenizer_name": "Qwen/Qwen2.5-VL-3B-Instruct"
-}
-```
+| `--moma_data_root`, `--moma_camera` | —, `head` | MoMa clone and camera |
+| `--moma_num_frames`, `--num_predict_frames`, `--moma_frame_stride` | 5, 5, 25 | context / future frames, stride |
+| `--batch_size`, `--grad_accum_steps` | 1, 1 | effective batch = product |
+| `--max_seq_len`, `--max_samples` | 256, 2000 | |
+| `--action_dim`, `--state_dim`, `--action_chunk_size` | 32, 32, 16 | |
+| `--epochs`, `--lr`, `--weight_decay`, `--grad_clip` | 5, 1e-4, 0.01, 1.0 | AdamW |
+| `--action_loss_weight`, `--visual_loss_weight` | 1.0, config | loss weights |
+| `--perceptual_weight`, `--ssim_weight`, `--temporal_weight` | 0.1, 0.4, 0.2 | anti-blur losses (0 = off) |
+| `--resume` | — | checkpoint path |
+| `--save_every`, `--keep_ckpts`, `--ckpt_dir` | 100, 3, `checkpoints` | |
+| `--tensorboard_dir`, `--vis_every` | `runs`, 10 | logging |
+| `--config` | — | YAML run config (above); flags override it |
+| `--model_option KEY=VALUE` | — | set any `HaloVLMConfig` field (repeatable) |
+| `--vision_encoder`, `--projector_type`, `--num_query_tokens` | `vit`, `mlp`, — | vision tower / projector |
+| `--llm_backbone`, `--llm_finetune`, `--llm_lora_r`, `--llm_attn_implementation` | —, `lora`, 16, `sdpa` | pretrained LLM decoder (`docs/llm_backbone.md`) |
+| `--dual_system`, `--dual_system_option KEY=VALUE` | `none` | dual-system VLA (`docs/dual_system.md`) |
+| `--val_fraction`, `--eval_every` | 0, 1 | validation |
+| `--ray*`, `--webdataset*` | off | distributed training (`docs/distributed.md`) |

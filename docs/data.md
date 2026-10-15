@@ -19,7 +19,7 @@ Raw fields per sample: `source`, `conversation` (list of `{from, value}`), `imag
 ```mermaid
 flowchart LR
   A["HF sample"] --> B["pair conversation into<br/>(user, assistant) turns"]
-  B --> C["render Qwen chat template<br/>system + user + assistant"]
+  B --> C["render the ChatML template<br/>system + user + assistant"]
   C --> D["tokenize (max_seq_len)"]
   D --> E["labels = ids;<br/>mask system/user/pad to -100"]
   A --> F["resize 224×224,<br/>ImageNet normalise, ≤ 8 images"]
@@ -41,6 +41,13 @@ flowchart LR
 | `action_mask` | `[B, T_act]` | |
 | `states` | `[B, T_state, state_dim]` | |
 | `state_mask` | `[B, T_state]` | |
+| `future_frames` | `[B, P, 3, H, W]` | optional, DiT world-model targets |
+| `bev_images`, `bev_cameras` | `[B, N_cam, 3, H, W]`, `lifting.Cameras` | optional, multi-camera BEV tokens (not produced by the shipped loaders) |
+
+Token ids come from the cosmo2 tokenizer of the built-in decoder, or from the configured LLM
+backbone's tokenizer (`model.llm.backbone`); `scripts/train.py` passes it to the loader.
+DROID (`dataloader/droid_dataset.py`) and AIRoA MoMa (`dataloader/airoa_moma_dataset.py`) produce
+the same batch format. `dataloader/stages/` lists the pretrain / mid-train / post-train datasets.
 
 ## Building a loader
 

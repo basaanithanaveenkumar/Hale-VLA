@@ -34,27 +34,41 @@ dependencies = [
     "tqdm>=4.65.0",
     "opencv-python>=4.13.0.92",
     "matplotlib>=3.10.8",
-    "halos-lift",
     "loguru>=0.7.3",
+    # Halos-lift (import name `lifting`): pure-PyTorch BEV / TPV lifting for the BEV scene tokens.
+    "halos-lift",
+    "torchcodec>=0.11.1",
+    "decord>=0.6.0",
+    "av>=17.0.1",
+    "setuptools>=82.0.0",
+    "tensorboard>=2.20.0",
+    "imageio>=2.37.3",
+    "imageio-ffmpeg>=0.6.0",
+    "nvitop>=1.7.0",
 ]
-
-# Halos-lift (import name `lifting`): pure-PyTorch BEV / TPV lifting.
-[tool.uv.sources]
-halos-lift = { git = "https://github.com/basaanithanaveenkumar/Halos-lift" }
 
 [project.optional-dependencies]
 dev = [
     "pytest>=7.4.0",
     "pytest-cov>=4.1.0",
     "black>=23.0.0",
-    "ruff>=0.0.275",
+    "ruff>=0.8",
     "mypy>=1.4.0",
     "isort>=5.12.0",
+    "pre-commit>=4.0",
 ]
 docs = [
     "sphinx>=7.0.0",
     "sphinx-rtd-theme>=1.3.0",
 ]
+# Ray Train launcher (scripts/train.py --ray) and WebDataset shards (--webdataset), from HaleBlocks.
+ray = ["hale-blocks[ray]"]
+webdataset = ["hale-blocks[webdataset]"]
+distributed = ["hale-blocks[ray,webdataset]"]
+# Pretrained LLM decoder (--llm_backbone): registry, LoRA (transformers + peft) from HaleBlocks.
+finetune = ["hale-blocks[finetune]"]
+# YAML run configs (scripts/train.py --config): HaleBlocks' pydantic schemas + YAML loader.
+config = ["hale-blocks"]
 
 [project.urls]
 Homepage = "https://github.com/yourusername/halo-vla"
@@ -93,3 +107,7 @@ ignore_missing_imports = true
 addopts = "--cov=models --cov-report=html --cov-report=term-missing"
 testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]
+
+[tool.uv.sources]
+hale-blocks = { git = "https://github.com/basaanithanaveenkumar/HaleBlocks.git" }
+halos-lift = { git = "https://github.com/basaanithanaveenkumar/Halos-lift" }

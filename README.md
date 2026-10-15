@@ -15,15 +15,20 @@ A PyTorch-based Vision-Language Model (VLA) implementation combining visual and 
 
 ## Features
 
-- **Vision Transformer (ViT)**: State-of-the-art image encoding
-- **Transformer Backbone**: Multi-head attention mechanism for sequence modeling
-- **Language Model Head**: Causal language modeling for text generation
-- **Mixture of Experts**: Efficient multi-expert model architecture
-- **Positional Embeddings**: Learnable positional encoding for sequences
-- **Image Projection**: Efficient image-to-embedding projection layer
-- **Multi-camera BEV tokens** (optional): surround-view images are lifted to a metric bird's-eye view
-  by the [Halos-lift](https://github.com/basaanithanaveenkumar/Halos-lift) package (`import lifting`) (TPVFormer, BEVFormer, Lift-Splat, Simple-BEV, TIIM,
-  all in pure PyTorch) and fed to the decoder as extra tokens
+| | |
+|---|---|
+| **Vision** | built-in ViT, pretrained SigLIP / CLIP, or any HaleBlocks vision backbone (`model.vision.encoder`); MLP, BLIP-2 Q-Former or Flamingo gated cross-attention projector |
+| **Language decoder** | built-in MoE decoder, or any of HaleBlocks' 49 fine-tunable LLMs (`model.llm.backbone`; LoRA / full / frozen). These include the 2026 small backbones, many of them text towers of natively multimodal models: Qwen3.5, Gemma 4, Ministral 3, Cosmos-Reason2, LFM2.5-VL, SmolVLM2, SmolLM3, Granite 4.2 ([docs/llm_backbone.md](docs/llm_backbone.md)) |
+| **Actions** | flow-matching action chunks at `<halo_action>` tokens; proprioception tokens at `<state>` |
+| **Multi-camera BEV** | optional bird's-eye-view scene tokens from Halos-lift (TPVFormer, BEVFormer, Lift-Splat, Simple-BEV, TIIM), placed before the image patches (below) |
+| **Dual system** | slow System 2 (this VLM) + fast System 1 policy; presets `basic`, `lcb`, `dp_vla`, `hirt`, `robodual`, `dexvla`, `openhelix`, `custom` ([docs/dual_system.md](docs/dual_system.md)) |
+| **World model (optional)** | DiT future-frame prediction at `<halo_world_video>` tokens (`model.world_model`, [docs/world_model.md](docs/world_model.md)) |
+| **RL fine-tuning** | REINFORCE, GRPO, DPO and Dreamer-style hooks (`src/Halo_VLA/rl`, `scripts/train_*.py`) |
+| **Config** | Hale-VLM-style YAML run configs with `inherits:`, validated against a schema; CLI flags override ([docs/configuration.md](docs/configuration.md)) |
+| **Data** | EO-Data1.5M, DROID, AIRoA MoMa loaders; pretrain / mid-train / post-train dataset registries (`dataloader/stages`) |
+| **Scale-out** | torchrun DDP, Ray Train, WebDataset shards ([docs/distributed.md](docs/distributed.md)) |
+| **Evaluation** | held-out validation with action metrics (L1, RMSE, chunk accuracy, smoothness), language / generation metrics (`src/Halo_VLA/metrics`) |
+| **Notebooks** | backbone guides and the dual-system tutorial (`notebooks/`) |
 
 ## Multi-camera BEV scene tokens (Halos-lift)
 
@@ -44,36 +49,36 @@ from lifting import Cameras
 cfg = HaloVLMConfig(use_bev=True, bev_lifter="bevformer", bev_num_cameras=6, bev_image_size=(224, 224))
 model = HaloVLM(cfg)
 cameras = Cameras(intrinsics=K, cam_to_ego=T, image_size=(224, 224))  # K (B,6,3,3), T (B,6,4,4)
-logits, actions = model(images, input_ids, attention_mask, states,
-                        bev_images=surround_images, bev_cameras=cameras)  # surround_images (B,6,3,H,W)
+logits, action_hiddens, _, _ = model(images, input_ids, attention_mask, states,
+                                     bev_images=surround_images, bev_cameras=cameras)  # (B,6,3,H,W)
+actions = model.sample_actions(action_hiddens)
 ```
 
 `models/bev_encoder.py` (`BEVSceneEncoder`) turns the BEV map into `(X/4)·(Y/4)` tokens, which are
-prepended to the image patches. Any registered lifter name works for `bev_lifter`. See
+prepended to the image patches. The language-loss offsets, the action / world-video query positions,
+the DiT world model's image slots and the dual-system System 2 all account for them. In a YAML
+config, set `model.bev` (`configs/examples/bev_tokens.yaml`). Batches must then carry `bev_images`
+and `bev_cameras`; the shipped EO / DROID / MoMa loaders don't provide them. Any registered lifter name works for `bev_lifter`. See
 the [Halos-lift README](https://github.com/basaanithanaveenkumar/Halos-lift) for the library, its tests, and the
 synthetic-scene verifier that checks each lifting technique.
 
 ## Project Structure
 
 ```
-Halo-VLA/
-├── models/
-│   ├── __init__.py
-│   ├── ha_vlm.py              # Main VLA model
-│   ├── vlm.py                 # Base VLM class
-│   ├── vit.py                 # Vision Transformer
-│   ├── transformer.py         # Transformer encoder/decoder
-│   ├── lm_head.py            # Language model head
-│   ├── image_proj.py         # Image projection layer
-│   ├── moe.py                # Mixture of Experts
-│   └── positional_embeddings.py  # Positional encoding
-├── tests/
-│   ├── __init__.py
-│   └── test_models.py        # Model tests
-├── pyproject.toml            # Project configuration
-├── .gitignore               # Git ignore rules
-├── LICENSE                  # MIT License
-└── README.md               # This file
+Hale-VLA/
+├── config/                 # HaloVLMConfig, special tokens, YAML run-config schema (run_config.py, sections/)
+├── configs/                # run configs: base, overfit, projectors, dual_system/, examples/, roadmap/
+├── dataloader/             # EO-Data, DROID, AIRoA MoMa loaders; stages/ dataset registries
+├── src/Halo_VLA/
+│   ├── models/             # HaloVLM, vision encoders, LLM bridge, BEV encoder, flow head, DiT world model
+│   ├── dual_system/        # System 2 / latent bridge / System 1 / controller
+│   ├── training/           # training step, evaluator, DDP / Ray / WebDataset helpers
+│   ├── metrics/            # action, generation, policy metrics
+│   └── rl/                 # REINFORCE / GRPO / DPO / Dreamer
+├── scripts/                # train.py (--config), inference, visualisation, RL trainers, profiling
+├── notebooks/              # backbone guides, dual-system tutorial
+├── tests/                  # pytest suite (offline, CPU)
+└── docs/                   # architecture, configuration, data, guides
 ```
 
 ## Installation
@@ -97,16 +102,21 @@ pip install -e ".[dev]"
 
 ## Quick Start
 
+```bash
+uv sync --extra config --extra finetune
+python scripts/train.py --config configs/overfit.yaml                       # CPU smoke test
+python scripts/train.py --config configs/examples/llm_qwen3_5_4b_base.yaml  # Qwen3.5 decoder, LoRA
+python scripts/train.py --config configs/dual_system/openhelix.yaml         # dual-system VLA
+python scripts/train.py --config configs/examples/bev_tokens.yaml           # + multi-camera BEV tokens
+```
+
 ```python
-from models import VLM, ViT, Transformer
+from config import HaloVLMConfig
+from models.halo_vla import HaloVLM
 
-# Initialize components
-vit = ViT(...)
-transformer = Transformer(...)
-vla_model = VLM(vision_encoder=vit, language_model=transformer)
-
-# Forward pass
-output = vla_model(images, text_tokens)
+model = HaloVLM(HaloVLMConfig(llm_backbone="smollm2-360m", action_dim=7, state_dim=8))
+logits, action_hiddens, visual_ctx, world_queries = model(images, input_ids, attention_mask, states)
+actions = model.sample_actions(action_hiddens)          # [B, n_action_tokens, chunk, action_dim]
 ```
 
 ## Development
@@ -122,8 +132,8 @@ uv pip install -e ".[dev]"
 ### Run Tests
 
 ```bash
-pytest
-pytest --cov=models  # With coverage
+pytest -o addopts=""          # whole suite, CPU, offline
+pytest                        # with coverage
 ```
 
 ### Code Formatting and Linting

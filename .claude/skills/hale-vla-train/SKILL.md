@@ -10,8 +10,8 @@ description: Train, evaluate, run inference and render videos for Hale-VLA on EO
 `dataloader/eo_dataset.py` streams `IPEC-COMMUNITY/EO-Data1.5M` from the Hugging Face Hub.
 17 subsets: 5 interleaved (`interleave-free_chat`, `-random_qa`, `-temporal`,
 `-trajectory`, `-video_caption`) and 12 QA (`qa-affordance_qa`, `qa-task_planning`, ...).
-Each sample becomes a Qwen chat transcript (`<|im_start|>system/user/assistant`) with
-`<image>`, `<state>` and `<action>` placeholders. Only assistant tokens carry labels;
+Each sample becomes a ChatML transcript (`<|im_start|>system/user/assistant`) with
+`<image>`, `<state>`, `<halo_action>` and `<halo_world_video>` placeholders. Only assistant tokens carry labels;
 everything else is `-100`.
 
 `eo_collate_fn` pads per batch and returns `images [B,N,3,H,W]`, `input_ids`,
@@ -23,24 +23,22 @@ Use `--max_samples` to keep experiments small.
 
 ## Train
 
+Prefer a YAML run config (Hale-VLM layout, validated; flags override it):
+
 ```bash
-python scripts/train.py \
-  --subset interleave-temporal --batch_size 2 --max_seq_len 512 \
-  --action_dim 32 --state_dim 32 --action_chunk_size 1 \
-  --epochs 5 --lr 1e-4 --weight_decay 0.01 --grad_clip 1.0 \
-  --action_loss_weight 1.0 --max_samples 100 --ckpt_dir checkpoints
+python scripts/train.py --config configs/overfit.yaml                        # smoke test
+python scripts/train.py --config configs/examples/llm_qwen3_5_4b_base.yaml   # pretrained LLM decoder
+python scripts/train.py --config configs/dual_system/openhelix.yaml          # dual system
+python scripts/train.py --config configs/base.yaml --dataset droid --droid_data_root /data/droid_100
 ```
 
-Objective: `L = CE(text) + action_loss_weight * masked_MSE(actions)`.
-- `compute_language_loss` skips the prepended image patches and shifts by one.
-- `compute_action_loss` flattens `[B, n_act, chunk, dim]` to `[B, n_act*chunk, dim]`
-  and masks padded steps.
+Objective: `L = CE(text) + action_loss_weight * flow_matching(actions) + visual_loss_weight * DiT(frames)`.
+In dual-system mode the System 1 policy loss replaces the action and video terms. Validation
+uses `--val_fraction` (action L1 / RMSE / chunk accuracy), and Ray / WebDataset come from
+`train.ray` / `data.webdataset`. The resolved YAML is saved to `<ckpt_dir>/run_config.yaml`.
 
-Optimiser is AdamW with a per-step cosine schedule. Checkpoints go to `--ckpt_dir`
-every `--save_every` epochs; `--vis_every` renders videos of predictions during training.
-
-EO-Data actions are 32-dimensional, so pass `--action_dim 32` (the config default of 7
-is for 6-DoF + gripper robots).
+EO-Data actions are 32-dimensional; the training CLI and `configs/base.yaml` default to
+`action_dim: 32` (the dataclass default of 7 is for 6-DoF + gripper robots).
 
 ## Inference and visualisation
 

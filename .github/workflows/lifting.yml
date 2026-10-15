@@ -18,6 +18,6 @@ jobs:
         run: |
           uv venv
           uv pip install torch --index-url https://download.pytorch.org/whl/cpu
-          uv pip install pytest "halos-lift @ git+https://github.com/basaanithanaveenkumar/Halos-lift"
+          uv pip install -e ".[config]" pytest
       - name: Halo-VLA BEV integration tests
         run: .venv/bin/python -m pytest tests/test_bev_integration.py -q -o addopts=""

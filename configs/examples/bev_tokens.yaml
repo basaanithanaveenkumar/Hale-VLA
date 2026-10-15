@@ -1,0 +1,14 @@
+# Multi-camera bird's-eye-view scene tokens (Halos-lift): six surround cameras lifted with BEVFormer
+# into a 51.2 m x 51.2 m grid, pooled to 256 tokens placed before the image patches.
+# The data pipeline must provide `bev_images` [B, 6, 3, H, W] and `bev_cameras` (lifting.Cameras).
+inherits: ../base.yaml
+variant: halo_vla_bev
+
+model:
+  bev:
+    enabled: true
+    lifter: bevformer
+    num_cameras: 6
+    image_size: [224, 224]
+    resolution: [64, 64, 6]
+    token_pool: 4

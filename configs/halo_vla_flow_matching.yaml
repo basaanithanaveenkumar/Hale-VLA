@@ -1,0 +1,22 @@
+# ============================================================
+# Halo-VLA  -  larger flow-matching action head, longer schedule.
+# ============================================================
+inherits: base.yaml
+variant: halo_vla_flow_matching
+
+model:
+  action:
+    chunk_size: 16
+    flow:
+      hidden_dim: 1024
+      time_embed_dim: 128
+      num_ode_steps: 50           # more Euler steps when sampling actions
+
+train:
+  epochs: 50
+  batch_size: 32
+  lr: 5.0e-5
+
+eval:
+  val_fraction: 0.05
+  flow_steps: 50

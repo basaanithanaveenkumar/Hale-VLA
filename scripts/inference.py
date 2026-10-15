@@ -52,7 +52,14 @@ def load_checkpoint(ckpt_path: str, device: torch.device):
     # Recover config stored alongside weights
     config = ckpt.get("config", HaloVLMConfig())
     model = HaloVLM(config=config).to(device)
-    model.load_state_dict(ckpt["model_state_dict"])
+    miss, unexpected = model.load_state_dict(ckpt["model_state_dict"], strict=False)
+    if miss:
+        logger.warning(
+            "Strict load skipped: {} missing keys (e.g. new visual DiT head)",
+            len(miss),
+        )
+    if unexpected:
+        logger.warning("{} unexpected keys dropped from checkpoint", len(unexpected))
     model.eval()
 
     logger.info(
@@ -70,12 +77,19 @@ def load_checkpoint(ckpt_path: str, device: torch.device):
 def get_tokenizer(max_seq_len: int = 512):
     """Return the same tokenizer used during training."""
     from transformers import AutoTokenizer
+    from config.tokens import get_all_custom_tokens
 
     tok = AutoTokenizer.from_pretrained(
-        "Qwen/Qwen2.5-VL-3B-Instruct", trust_remote_code=True
+        "HuggingFaceTB/cosmo2-tokenizer", trust_remote_code=True
     )
     if tok.pad_token is None:
         tok.pad_token = tok.eos_token
+
+    # Add the same custom special tokens that the dataloaders add
+    to_add = [t for t in get_all_custom_tokens() if t not in tok.get_vocab()]
+    if to_add:
+        tok.add_special_tokens({"additional_special_tokens": to_add})
+
     return tok
 
 
@@ -126,7 +140,7 @@ def generate(
         eos_token_id = tokenizer.eos_token_id
 
     for _ in range(max_new_tokens):
-        logits, action_hiddens = model(
+        logits, action_hiddens, _ = model(
             images=images,
             input_ids=input_ids,
             attention_mask=attention_mask,
@@ -313,7 +327,7 @@ def evaluate_dataset(args):
         action_mask = batch["action_mask"].to(device)
         states = batch["states"].to(device)
 
-        logits, action_hiddens = model(
+        logits, action_hiddens, _ = model(
             images=images,
             input_ids=input_ids,
             attention_mask=attention_mask,
@@ -322,7 +336,7 @@ def evaluate_dataset(args):
 
         # --- Language loss (cross-entropy) ---
         num_images = (input_ids == config.image_token_id).sum(dim=1).max().item()
-        num_patches = (config.img_size // config.patch_size) ** 2
+        num_patches = config.num_image_tokens_per_image
         num_prepended = num_images * num_patches
 
         text_logits = logits[:, num_prepended:-1, :]
