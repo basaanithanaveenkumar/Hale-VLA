@@ -90,7 +90,7 @@ class HaloVLATrainingStep(nn.Module):
         """``batch``: the collated dict already on the right device (``images``, ``input_ids``,
         ``attention_mask``, ``labels``, ``actions``, ``action_mask``, ``states`` and optionally
         ``image_mask`` / ``future_frames`` / ``bev_images`` + ``bev_cameras``)."""
-        model, cfg = self.model, self.model.config
+        model = self.model
         images, input_ids = batch["images"], batch["input_ids"]
         # Multi-camera BEV inputs only when the batch carries them (most datasets do not).
         bev = {k: batch[k] for k in ("bev_images", "bev_cameras") if batch.get(k) is not None}
