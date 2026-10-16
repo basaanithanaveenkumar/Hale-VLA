@@ -119,6 +119,21 @@ logits, action_hiddens, visual_ctx, world_queries = model(images, input_ids, att
 actions = model.sample_actions(action_hiddens)          # [B, n_action_tokens, chunk, action_dim]
 ```
 
+## Deployment
+
+Export the policy (or its parts) to NVIDIA TensorRT / Jetson, Apple MLX, AMD MIGraphX /
+Ryzen AI and Qualcomm Snapdragon NPUs with the HaleBlocks deployment framework:
+
+```bash
+pip install -e ".[deploy-nvidia]"    # or deploy-apple | deploy-amd | deploy-qualcomm
+hale-vla-deploy run configs/deploy/policy_tensorrt_fp16.yaml --cfg-options adapter.checkpoint=ckpt.pt
+hale-vla-deploy run configs/deploy/ci_policy_onnx_ort.yaml   # CI smoke test, runs anywhere
+```
+
+Exportable graphs: full flow policy, perception (System 2 prefix), flow action step, language model,
+and the dual-system System 1 / System 2 split. Every export is
+checked against PyTorch at the min / opt / max input shapes. See [docs/deploy.md](docs/deploy.md).
+
 ## Development
 
 ### Setup Development Environment

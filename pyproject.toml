@@ -69,6 +69,40 @@ distributed = ["hale-blocks[ray,webdataset]"]
 finetune = ["hale-blocks[finetune]"]
 # YAML run configs (scripts/train.py --config): HaleBlocks' pydantic schemas + YAML loader.
 config = ["hale-blocks"]
+# Deployment (hale-vla-deploy): HaleBlocks' hale_core.deploy + ONNX / ONNX Runtime.
+deploy = [
+    "hale-blocks[deploy]",
+    "onnx>=1.17",
+    "onnxscript>=0.2",
+    "onnxruntime>=1.20",
+    "safetensors>=0.4",
+    "pyyaml>=6.0",
+    "loguru>=0.7",
+]
+# NVIDIA: TensorRT 10/11 + ModelOpt (AutoCast / PTQ). Build engines on the target GPU.
+deploy-nvidia = [
+    "halo-vla[deploy]",
+    "tensorrt>=10.0; sys_platform == 'linux' or sys_platform == 'win32'",
+    "nvidia-modelopt[onnx]>=0.40; sys_platform == 'linux'",
+]
+# Apple Silicon: MLX (ATen -> MLX bridge, .mlxfn export).
+deploy-apple = [
+    "halo-vla[deploy]",
+    "mlx>=0.25; sys_platform == 'darwin' and platform_machine == 'arm64'",
+]
+# AMD: Quark for the Ryzen AI NPU (MIGraphX ships with ROCm, not on PyPI).
+deploy-amd = [
+    "halo-vla[deploy]",
+    "amd-quark>=0.10",
+]
+# Qualcomm: AI Hub client (cloud compile / profile on Snapdragon devices).
+deploy-qualcomm = [
+    "halo-vla[deploy]",
+    "qai-hub>=0.30",
+]
+
+[project.scripts]
+hale-vla-deploy = "Halo_VLA.deploy.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/yourusername/halo-vla"
@@ -78,7 +112,7 @@ Issues = "https://github.com/yourusername/halo-vla/issues"
 
 [tool.setuptools.packages.find]
 where = [".", "src"]
-include = ["config*", "dataloader*", "Halo_VLA*", "Halo_VLA.models*", "tests*", "scripts*"]
+include = ["config*", "dataloader*", "Halo_VLA*", "Halo_VLA.models*", "Halo_VLA.deploy*", "tests*", "scripts*"]
 
 [tool.black]
 line-length = 100

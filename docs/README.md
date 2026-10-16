@@ -17,6 +17,7 @@ robot state, **reasons** in language, **acts** with a flow-matching action head 
 | [API](api.md) | module reference |
 | [Driving to humanoids](driving-to-humanoids/README.md) | guide: from driving stacks to humanoid control |
 | [World model reference](world_model.md) | detailed write-up of the DiT head, losses and bug fixes |
+| [Deployment](deploy.md) | export to TensorRT / Jetson, MLX, AMD MIGraphX / Ryzen AI, Qualcomm AI Hub / ExecuTorch |
 | [Blog](blog/README.md) | long-form posts |
 
 Also: the [paper](../paper/main.tex) and the [project page](../project-page/index.html).
