@@ -9,6 +9,7 @@ robot state, **reasons** in language, **acts** with a flow-matching action head 
 | [Getting started](getting-started.md) | install, smoke test, first runs |
 | [Architecture](architecture.md) | Mermaid diagrams: system, token routing, flow head, DiT conditioning, training step |
 | [Configuration](configuration.md) | YAML run configs (`--config`), `HaloVLMConfig` fields, training flags |
+| [Registries](registries.md) | extension points (presets, latents, System 1 policies, projectors, encoders, datasets, deploy adapters), dependency versions |
 | [LLM backbones](llm_backbone.md) | pretrained, LoRA-finetunable language decoders (incl. multimodal text towers) |
 | [Vision encoders & validation](vision_encoders_and_validation.md) | SigLIP / CLIP / HaleBlocks encoders, held-out metrics |
 | [Dual-system VLA](dual_system.md) | System 2 / System 1 from first principles, every published variant with a diagram |

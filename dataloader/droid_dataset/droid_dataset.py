@@ -35,10 +35,10 @@ class DROIDDataset(DroidPromptMixin, DroidEpisodeIndexMixin, Dataset):
     def __init__(
         self,
         config: Optional[DROIDConfig] = None,
-        tokenizer=None,
+        tokenizer: Any = None,
         split: str = "train",
-        **kwargs,
-    ):
+        **kwargs: Any,
+    ) -> None:
         super().__init__()
         if config is None:
             config = DROIDConfig(**kwargs)
@@ -323,7 +323,6 @@ class DROIDDataset(DroidPromptMixin, DroidEpisodeIndexMixin, Dataset):
 
     def __getitem__(self, idx: int) -> Dict[str, Any]:
         ep = self.episodes[idx]
-        ep_idx = int(ep["episode_index"])
         task = ep["task"] or "robot manipulation"
         data_path = ep["data_path"]
         video_path = ep["video_path"]

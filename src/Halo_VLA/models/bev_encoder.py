@@ -4,16 +4,38 @@ Multi-camera bird's-eye-view (BEV) scene encoder for Halo-VLA.
 Lifts surround-view camera images into a metric BEV grid with any lifter from the
 ``lifting`` package (Simple-BEV, Lift-Splat, BEVFormer, TIIM, TPVFormer, ...) and turns
 the grid into a short sequence of tokens that the decoder transformer can attend to.
+
+``lifting`` (Halos-lift) is an optional dependency: it is imported when an encoder is built,
+so this module imports without it.
 """
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any
+
 import torch
 import torch.nn as nn
-from lifting import Cameras, GridSpec
-from lifting.decoders import BEVDecoder
-from lifting.encoders import SimpleConvEncoder
-from lifting.models import build_lifter
+from hale_core.exceptions import MissingDependencyError
+
+if TYPE_CHECKING:
+    from lifting import Cameras, GridSpec
+
+    from config.model_config import HaloVLMConfig
+
+
+def _lifting() -> Any:
+    """The ``lifting`` package, or a :class:`MissingDependencyError` with the install hint."""
+    try:
+        import lifting
+        import lifting.decoders
+        import lifting.encoders
+        import lifting.models
+    except ImportError as exc:
+        raise MissingDependencyError(
+            "lifting", "multi-camera BEV tokens need Halos-lift: pip install 'lifting @ git+https://github.com/"
+            "basaanithanaveenkumar/Halos-lift.git'"
+        ) from exc
+    return lifting
 
 
 class BEVSceneEncoder(nn.Module):
@@ -22,11 +44,14 @@ class BEVSceneEncoder(nn.Module):
     Args:
         emb_dim:      output token width (the VLA embedding size).
         lifter:       name of a registered ``lifting`` lifter.
-        grid:         metric BEV region and resolution.
+        grid:         metric BEV region and resolution (default ``lifting.GridSpec()``).
         image_size:   (H, W) of the camera images.
         num_cameras:  cameras in the rig.
         channels:     width of the image encoder / BEV features.
         token_pool:   BEV cells averaged into one token (per side).
+
+    Raises:
+        MissingDependencyError: if the ``lifting`` package is not installed.
     """
 
     def __init__(
@@ -38,14 +63,15 @@ class BEVSceneEncoder(nn.Module):
         num_cameras: int = 6,
         channels: int = 64,
         token_pool: int = 4,
-    ):
+    ) -> None:
         super().__init__()
-        self.grid = grid or GridSpec()
-        self.image_encoder = SimpleConvEncoder(out_channels=channels, num_levels=2)
-        self.lifter = build_lifter(
+        lifting = _lifting()
+        self.grid = grid or lifting.GridSpec()
+        self.image_encoder = lifting.encoders.SimpleConvEncoder(out_channels=channels, num_levels=2)
+        self.lifter = lifting.models.build_lifter(
             lifter, self.grid, channels, image_size, num_cameras, self.image_encoder
         )
-        self.bev_decoder = BEVDecoder(channels, channels)
+        self.bev_decoder = lifting.decoders.BEVDecoder(channels, channels)
         self.pool = nn.AvgPool2d(token_pool, ceil_mode=True)
         nx, ny = self.grid.bev_shape
         self.num_tokens = -(-nx // token_pool) * -(-ny // token_pool)
@@ -54,8 +80,9 @@ class BEVSceneEncoder(nn.Module):
         nn.init.trunc_normal_(self.pos_embed, std=0.02)
 
     @classmethod
-    def from_config(cls, config) -> "BEVSceneEncoder":
-        grid = GridSpec(*config.bev_bounds, resolution=tuple(config.bev_resolution))
+    def from_config(cls, config: HaloVLMConfig) -> BEVSceneEncoder:
+        """Build the encoder from the ``bev_*`` fields of a :class:`HaloVLMConfig`."""
+        grid = _lifting().GridSpec(*config.bev_bounds, resolution=tuple(config.bev_resolution))
         return cls(
             emb_dim=config.emb_dim,
             lifter=config.bev_lifter,

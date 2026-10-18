@@ -53,12 +53,13 @@ class DualSystemSection(VLASection):
 
     @model_validator(mode="after")
     def _resolves(self) -> DualSystemSection:
-        from dual_system.config import resolve_dual_system_config
+        from dual_system.resolution import resolve_dual_system_config
 
         resolve_dual_system_config(self.preset, self.options() or None)  # raises on bad combinations
         return self
 
     def train_arguments(self) -> dict[str, Any]:
+        """``--dual_system`` / ``--dual_system_option`` values for the keys the YAML sets."""
         out: dict[str, Any] = {}
         if "preset" in self.model_fields_set:
             out["dual_system"] = self.preset

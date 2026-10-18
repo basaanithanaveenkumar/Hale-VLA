@@ -9,7 +9,7 @@ A PyTorch-based Vision-Language Model (VLA) implementation combining visual and 
 | Paper (arXiv source) | [`paper/main.tex`](paper/main.tex) — build with `make -C paper` |
 | Project page | [basaanithanaveenkumar.github.io/Hale-VLA](https://basaanithanaveenkumar.github.io/Hale-VLA/) ([source](project-page/index.html)) |
 | Documentation | [`docs/`](docs/README.md) — getting started, configuration, data, API |
-| Architecture diagrams | [`docs/architecture.md`](docs/architecture.md) (Mermaid) |
+| Architecture diagrams | [`docs/architecture.md`](docs/architecture.md) (Mermaid), [`docs/registries.md`](docs/registries.md) (extension points) |
 | Blog | [Three tokens and a router: building a VLA from scratch](docs/blog/2026-09-28-building-a-vla-from-scratch.md) |
 | Claude Code skills | [`.claude/skills/`](.claude/skills) — `hale-vla-dev`, `hale-vla-train`, `hale-vla-extend`, `hale-publish` |
 
@@ -66,19 +66,26 @@ synthetic-scene verifier that checks each lifting technique.
 
 ```
 Hale-VLA/
-├── config/                 # HaloVLMConfig, special tokens, YAML run-config schema (run_config.py, sections/)
-├── configs/                # run configs: base, overfit, projectors, dual_system/, examples/, roadmap/
-├── dataloader/             # EO-Data, DROID, AIRoA MoMa loaders; stages/ dataset registries
-├── src/Halo_VLA/
-│   ├── models/             # HaloVLM, vision encoders, LLM bridge, BEV encoder, flow head, DiT world model
-│   ├── dual_system/        # System 2 / latent bridge / System 1 / controller
-│   ├── training/           # training step, evaluator, DDP / Ray / WebDataset helpers
-│   ├── metrics/            # action, generation, policy metrics
-│   └── rl/                 # REINFORCE / GRPO / DPO / Dreamer
-├── scripts/                # train.py (--config), inference, visualisation, RL trainers, profiling
-├── notebooks/              # backbone guides, dual-system tutorial
-├── tests/                  # pytest suite (offline, CPU)
-└── docs/                   # architecture, configuration, data, guides
+├── src/Halo_VLA/                  # library (import roots: repo root and src/Halo_VLA, see docs/getting-started.md)
+│   ├── models/                    # HaloVLM, vit/, transformer/, moe/, qformer/, gated_cross_attention/,
+│   │                              #   image_proj/ (IMAGE_PROJECTORS), vision_encoders/ (VISION_ENCODERS),
+│   │                              #   bev_encoder.py (BEV tokens), DiT/, flow_action_decoder/, video_vae/
+│   ├── dual_system/               # presets (DUAL_SYSTEM_PRESETS), latent/ (LATENT_EXTRACTORS),
+│   │                              #   system1/ (SYSTEM1_POLICIES), model/, system2.py, controller.py
+│   ├── training/                  # DDPSession, CheckpointManager, TRAIN_DATASETS, steps, Ray / WebDataset CLI
+│   ├── rl/                        # REINFORCE / GRPO / DPO / Dreamer, actor_critic/, rewards/
+│   ├── metrics/                   # action/, generation/, policy/ evaluation metrics
+│   ├── visualization/             # frames, action plots, DiT GIFs, videos
+│   ├── profiling/                 # architecture-equivalent stubs, PROFILE_COMPONENTS
+│   ├── deploy/                    # hale-vla-deploy adapters (HALO_VLA_ADAPTERS) and export graphs
+│   └── exceptions/                # HaloVLAError hierarchy rooted in hale_core.HaleCoreError
+├── config/                        # HaloVLMConfig, special tokens, VLARunConfig and its pydantic sections (incl. bev/)
+├── configs/                       # run configs: base, overfit, projectors, dual_system/, examples/, roadmap/; deploy/
+├── dataloader/                    # EO-Data, DROID, AIRoA MoMa loaders; stages/ dataset registries
+├── scripts/                       # train.py (--config), inference, visualisation, RL trainers, profiling
+├── notebooks/                     # backbone guides, dual-system tutorial
+├── tests/{unit,integration}/      # pytest suites (fast unit tests; end-to-end flows on real configs)
+└── docs/                          # architecture (mermaid), configuration, registries, data, guides
 ```
 
 ## Installation
@@ -100,10 +107,24 @@ pip install -e .
 pip install -e ".[dev]"
 ```
 
+The core install pulls in [HaleBlocks](https://github.com/basaanithanaveenkumar/HaleBlocks) (`hale_core`:
+registries, config loader, exceptions). Optional extras (the package imports without any of them):
+
+| Extra | Adds | Needed for |
+|---|---|---|
+| `.[config]` | pydantic schemas, YAML loader | `scripts/train.py --config run.yaml` |
+| `.[finetune]` | transformers, peft | `--llm_backbone`, SigLIP / CLIP encoders |
+| `.[ray]`, `.[webdataset]`, `.[distributed]` | Ray Train, WebDataset | `--ray`, `--webdataset` |
+| `.[deploy]` | ONNX, ONNX Runtime, safetensors | `hale-vla-deploy` (ONNX Runtime / CI configs) |
+| `.[deploy-nvidia]`, `.[deploy-apple]`, `.[deploy-amd]`, `.[deploy-qualcomm]` | vendor SDKs | TensorRT, MLX, Ryzen AI, QNN exports |
+| `.[dev]` | pytest, ruff, mypy | tests and linting |
+| Halos-lift (`lifting`) | BEV lifters | `model.bev` (multi-camera BEV tokens) |
+
 ## Quick Start
 
 ```bash
 uv sync --extra config --extra finetune
+export PYTHONPATH=.:src/Halo_VLA                                            # the sources use flat import roots
 python scripts/train.py --config configs/overfit.yaml                       # CPU smoke test
 python scripts/train.py --config configs/examples/llm_qwen3_5_4b_base.yaml  # Qwen3.5 decoder, LoRA
 python scripts/train.py --config configs/dual_system/openhelix.yaml         # dual-system VLA
@@ -148,6 +169,7 @@ uv pip install -e ".[dev]"
 
 ```bash
 pytest -o addopts=""          # whole suite, CPU, offline
+pytest tests/unit -q          # fast unit tests (no network or GPU); tests/integration for the end-to-end flows
 pytest                        # with coverage
 ```
 
