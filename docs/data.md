@@ -1,6 +1,6 @@
 # Data: EO-Data1.5M
 
-`dataloader/eo_dataset.py` wraps
+`dataloader/eo_dataset/` wraps
 [`IPEC-COMMUNITY/EO-Data1.5M`](https://huggingface.co/datasets/IPEC-COMMUNITY/EO-Data1.5M),
 the interleaved embodied corpus released with EO-1.
 
