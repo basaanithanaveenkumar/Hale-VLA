@@ -197,15 +197,16 @@ are placeholders.
 import numpy as np
 import onnxruntime as ort
 
-ACTION_ORDER = [...]          # ASIMOV_1_JOINT_NAMES, 23 names
+ACTION_ORDER = [...]  # ASIMOV_1_JOINT_NAMES, 23 names
 SLOT_0_1, SLOT_2_3, SLOT_4_5 = [...], [...], [...]
 OBS_JOINT_ORDER = SLOT_0_1 + SLOT_2_3 + SLOT_4_5
-Q_DEFAULT = {...}             # from ASIMOV_1_STANDING_INIT_STATE, by name
+Q_DEFAULT = {...}  # from ASIMOV_1_STANDING_INIT_STATE, by name
 ACTION_SCALE = 0.25
 
 session = ort.InferenceSession("policy.onnx")
 input_name = session.get_inputs()[0].name
 last_action = np.zeros(23, dtype=np.float32)
+
 
 def projected_gravity(quat_wxyz):
     w, x, y, z = quat_wxyz
@@ -215,25 +216,28 @@ def projected_gravity(quat_wxyz):
     gz = -(1.0 - 2.0 * (x * x + y * y))
     return np.array([gx, gy, gz], dtype=np.float32)
 
-while running():                                   # 50 Hz
-    imu = read_imu()                               # pelvis-frame gyro + orientation
-    q, qd = read_joints()                          # dicts by joint name
-    cmd = read_command()                           # [vx, vy, wz] in base frame
 
-    obs = np.concatenate([
-        0.25 * imu.gyro,
-        projected_gravity(imu.quat_wxyz),
-        cmd,
-        [q[n] - Q_DEFAULT[n] for n in OBS_JOINT_ORDER],
-        [0.1 * qd[n] for n in OBS_JOINT_ORDER],
-        last_action,
-    ]).astype(np.float32)[None, :]                 # shape (1, 78)
+while running():  # 50 Hz
+    imu = read_imu()  # pelvis-frame gyro + orientation
+    q, qd = read_joints()  # dicts by joint name
+    cmd = read_command()  # [vx, vy, wz] in base frame
 
-    action = session.run(None, {input_name: obs})[0][0]   # shape (23,)
+    obs = np.concatenate(
+        [
+            0.25 * imu.gyro,
+            projected_gravity(imu.quat_wxyz),
+            cmd,
+            [q[n] - Q_DEFAULT[n] for n in OBS_JOINT_ORDER],
+            [0.1 * qd[n] for n in OBS_JOINT_ORDER],
+            last_action,
+        ]
+    ).astype(np.float32)[None, :]  # shape (1, 78)
+
+    action = session.run(None, {input_name: obs})[0][0]  # shape (23,)
     last_action = action.astype(np.float32)
 
     targets = {n: Q_DEFAULT[n] + ACTION_SCALE * action[i] for i, n in enumerate(ACTION_ORDER)}
-    send_joint_targets(targets)                    # motor drivers run PD with nominal gains
+    send_joint_targets(targets)  # motor drivers run PD with nominal gains
     sleep_until_next_tick()
 ```
 

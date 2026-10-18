@@ -32,8 +32,9 @@ def _lifting() -> Any:
         import lifting.models
     except ImportError as exc:
         raise MissingDependencyError(
-            "lifting", "multi-camera BEV tokens need Halos-lift: pip install 'lifting @ git+https://github.com/"
-            "basaanithanaveenkumar/Halos-lift.git'"
+            "lifting",
+            "multi-camera BEV tokens need Halos-lift: pip install 'lifting @ git+https://github.com/"
+            "basaanithanaveenkumar/Halos-lift.git'",
         ) from exc
     return lifting
 
@@ -102,5 +103,5 @@ class BEVSceneEncoder(nn.Module):
     def forward(self, images: torch.Tensor, cameras: Cameras) -> torch.Tensor:
         """Returns BEV tokens [B, num_tokens, emb_dim]."""
         bev = self.pool(self.bev_features(images, cameras))  # [B, C, X', Y']
-        tokens = bev.flatten(2).transpose(1, 2)               # [B, X'*Y', C]
+        tokens = bev.flatten(2).transpose(1, 2)  # [B, X'*Y', C]
         return self.proj(tokens) + self.pos_embed

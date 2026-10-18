@@ -14,15 +14,24 @@ class BEVConfig(VLASection):
     (``lifting.Cameras``); the shipped EO / DROID / MoMa loaders do not provide them.
     """
 
-    OVERRIDES = {"enabled": "use_bev", "lifter": "bev_lifter", "num_cameras": "bev_num_cameras",
-                 "image_size": "bev_image_size", "bounds": "bev_bounds", "resolution": "bev_resolution",
-                 "channels": "bev_channels", "token_pool": "bev_token_pool"}
+    OVERRIDES = {
+        "enabled": "use_bev",
+        "lifter": "bev_lifter",
+        "num_cameras": "bev_num_cameras",
+        "image_size": "bev_image_size",
+        "bounds": "bev_bounds",
+        "resolution": "bev_resolution",
+        "channels": "bev_channels",
+        "token_pool": "bev_token_pool",
+    }
 
     enabled: bool = False
-    lifter: str = "bevformer"              # simple_bev | lift_splat | bevformer | tpvformer | tiim ...
+    lifter: str = "bevformer"  # simple_bev | lift_splat | bevformer | tpvformer | tiim ...
     num_cameras: int = 6
     image_size: list[int] = Field(default_factory=lambda: [224, 224])
-    bounds: list[list[float]] = Field(default_factory=lambda: [[-25.6, 25.6], [-25.6, 25.6], [-2.0, 4.0]])
+    bounds: list[list[float]] = Field(
+        default_factory=lambda: [[-25.6, 25.6], [-25.6, 25.6], [-2.0, 4.0]]
+    )
     resolution: list[int] = Field(default_factory=lambda: [64, 64, 6])
     channels: int = 64
-    token_pool: int = 4                    # BEV cells per token side: 64x64 -> 16x16 = 256 tokens
+    token_pool: int = 4  # BEV cells per token side: 64x64 -> 16x16 = 256 tokens

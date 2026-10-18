@@ -84,8 +84,9 @@ qpos0_rand = EventTerm(
 This one is defined in `mdp/events.py`, and it's clever:
 
 ```python
-def randomize_joint_default_pos(env, env_ids, ranges, asset_cfg=SceneEntityCfg("robot"),
-                                action_name="joint_pos"):
+def randomize_joint_default_pos(
+    env, env_ids, ranges, asset_cfg=SceneEntityCfg("robot"), action_name="joint_pos"
+):
     asset = env.scene[asset_cfg.name]
     if env_ids is None:
         env_ids = torch.arange(env.scene.num_envs, device=asset.device)
@@ -95,7 +96,9 @@ def randomize_joint_default_pos(env, env_ids, ranges, asset_cfg=SceneEntityCfg("
         asset.data.nominal_default_joint_pos = asset.data.default_joint_pos.clone()
 
     ...
-    offsets = torch.empty((len(env_ids), len(joint_ids)), device=asset.device).uniform_(ranges[0], ranges[1])
+    offsets = torch.empty((len(env_ids), len(joint_ids)), device=asset.device).uniform_(
+        ranges[0], ranges[1]
+    )
     asset.data.default_joint_pos[env_ids[:, None], joint_ids] += offsets
 
     # Keep the action term's offset in sync with the new defaults.
@@ -165,8 +168,13 @@ reset_base = EventTerm(
     func=mdp.reset_root_state_uniform,
     mode="reset",
     params={
-        "pose_range": {"x": (-0.5, 0.5), "y": (-0.5, 0.5), "yaw": (-3.14, 3.14),
-                       "pitch": (-0.15, 0.15), "roll": (-0.1, 0.1)},
+        "pose_range": {
+            "x": (-0.5, 0.5),
+            "y": (-0.5, 0.5),
+            "yaw": (-3.14, 3.14),
+            "pitch": (-0.15, 0.15),
+            "roll": (-0.1, 0.1),
+        },
         "velocity_range": {"pitch": (-0.5, 0.5), "roll": (-0.3, 0.3)},
     },
 )
@@ -183,8 +191,11 @@ before it can do anything else.
 reset_robot_joints = EventTerm(
     func=mdp.reset_joints_by_offset,
     mode="reset",
-    params={"position_range": (-0.5, 0.5), "velocity_range": (-0.5, 0.5),
-            "asset_cfg": SceneEntityCfg("robot", joint_names=[".*"])},
+    params={
+        "position_range": (-0.5, 0.5),
+        "velocity_range": (-0.5, 0.5),
+        "asset_cfg": SceneEntityCfg("robot", joint_names=[".*"]),
+    },
 )
 ```
 
@@ -223,8 +234,16 @@ push_robot = EventTerm(
     func=mdp.push_by_setting_velocity,
     mode="interval",
     interval_range_s=(1.0, 3.0),
-    params={"velocity_range": {"x": (-0.5, 0.5), "y": (-0.5, 0.5), "z": (-0.3, 0.3),
-                               "roll": (-0.4, 0.4), "pitch": (-0.4, 0.4), "yaw": (-0.5, 0.5)}},
+    params={
+        "velocity_range": {
+            "x": (-0.5, 0.5),
+            "y": (-0.5, 0.5),
+            "z": (-0.3, 0.3),
+            "roll": (-0.4, 0.4),
+            "pitch": (-0.4, 0.4),
+            "yaw": (-0.5, 0.5),
+        }
+    },
 )
 ```
 
@@ -333,18 +352,18 @@ class Asimov1VelocityEnvCfg_PLAY(Asimov1VelocityEnvCfg):
     def __post_init__(self):
         super().__post_init__()
         self.scene.num_envs = 32
-        self.episode_length_s = int(1e9)                          # effectively infinite
-        self.observations.policy.enable_corruption = False        # no obs noise
-        self.events.push_robot = None                             # no pushes
-        self.events.qpos0_rand = None                             # perfect calibration
-        self.events.pd_gains_rand = None                          # nominal gains
-        self.events.base_com = None                               # nominal CoM
-        self.events.foot_friction = None                          # nominal friction
+        self.episode_length_s = int(1e9)  # effectively infinite
+        self.observations.policy.enable_corruption = False  # no obs noise
+        self.events.push_robot = None  # no pushes
+        self.events.qpos0_rand = None  # perfect calibration
+        self.events.pd_gains_rand = None  # nominal gains
+        self.events.base_com = None  # nominal CoM
+        self.events.foot_friction = None  # nominal friction
         self.events.reset_robot_joints.params["position_range"] = (0.0, 0.0)
         self.events.reset_robot_joints.params["velocity_range"] = (0.0, 0.0)
         self.events.reset_base.params["pose_range"] = {k: (0.0, 0.0) for k in ...}
         self.events.reset_base.params["velocity_range"] = {k: (0.0, 0.0) for k in ...}
-        self.commands.twist.ranges.lin_vel_x = (0.6, 0.8)         # always walking forward
+        self.commands.twist.ranges.lin_vel_x = (0.6, 0.8)  # always walking forward
         self.commands.twist.ranges.lin_vel_y = (-0.5, 0.5)
         self.commands.twist.ranges.ang_vel_z = (-0.6, 0.6)
         self.scene.terrain.terrain_generator = COBBLESTONE_ROAD_CFG.replace(

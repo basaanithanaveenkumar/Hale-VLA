@@ -70,6 +70,7 @@ At the end of `velocity_env_cfg.py`:
 class Asimov1VelocityEnvCfg(ManagerBasedRLEnvCfg):
     scene: Asimov1SceneCfg = Asimov1SceneCfg(num_envs=4096, env_spacing=2.5)
     ...
+
     def __post_init__(self):
         self.decimation = 4
         self.episode_length_s = 20.0
@@ -267,6 +268,7 @@ And who imports `tasks/locomotion/__init__.py`? The parent package,
 
 ```python
 from isaaclab_tasks.utils import import_packages
+
 import_packages(__name__, blacklist_pkgs=[])
 ```
 

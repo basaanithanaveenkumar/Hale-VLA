@@ -22,7 +22,7 @@ class ActionsCfg:
         asset_name="robot",
         joint_names=list(ASIMOV_1_JOINT_NAMES),
         preserve_order=True,
-        scale=ASIMOV_1_ACTION_SCALE,      # 0.25
+        scale=ASIMOV_1_ACTION_SCALE,  # 0.25
         use_default_offset=True,
     )
 ```

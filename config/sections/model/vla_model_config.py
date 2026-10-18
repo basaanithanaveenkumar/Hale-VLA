@@ -19,9 +19,12 @@ from .world_model_config import WorldModelConfig
 class VLAModelConfig(VLASection):
     """Halo-VLA architecture; nested sections as in Hale-VLM (``vision``, ``llm``), plus ``bev``."""
 
-    OVERRIDES = {"emb_dim": "emb_dim", "emb_factor_dim": "emb_factor_dim",
-                 "max_position_embeddings": "max_position_embeddings",
-                 "gradient_checkpointing": "gradient_checkpointing"}
+    OVERRIDES = {
+        "emb_dim": "emb_dim",
+        "emb_factor_dim": "emb_factor_dim",
+        "max_position_embeddings": "max_position_embeddings",
+        "gradient_checkpointing": "gradient_checkpointing",
+    }
 
     emb_dim: int = 512
     emb_factor_dim: int = 128

@@ -46,11 +46,14 @@ from config import HaloVLMConfig
 from models.halo_vla import HaloVLM
 from lifting import Cameras
 
-cfg = HaloVLMConfig(use_bev=True, bev_lifter="bevformer", bev_num_cameras=6, bev_image_size=(224, 224))
+cfg = HaloVLMConfig(
+    use_bev=True, bev_lifter="bevformer", bev_num_cameras=6, bev_image_size=(224, 224)
+)
 model = HaloVLM(cfg)
 cameras = Cameras(intrinsics=K, cam_to_ego=T, image_size=(224, 224))  # K (B,6,3,3), T (B,6,4,4)
-logits, action_hiddens, _, _ = model(images, input_ids, attention_mask, states,
-                                     bev_images=surround_images, bev_cameras=cameras)  # (B,6,3,H,W)
+logits, action_hiddens, _, _ = model(
+    images, input_ids, attention_mask, states, bev_images=surround_images, bev_cameras=cameras
+)  # (B,6,3,H,W)
 actions = model.sample_actions(action_hiddens)
 ```
 
@@ -137,7 +140,7 @@ from models.halo_vla import HaloVLM
 
 model = HaloVLM(HaloVLMConfig(llm_backbone="smollm2-360m", action_dim=7, state_dim=8))
 logits, action_hiddens, visual_ctx, world_queries = model(images, input_ids, attention_mask, states)
-actions = model.sample_actions(action_hiddens)          # [B, n_action_tokens, chunk, action_dim]
+actions = model.sample_actions(action_hiddens)  # [B, n_action_tokens, chunk, action_dim]
 ```
 
 ## Deployment

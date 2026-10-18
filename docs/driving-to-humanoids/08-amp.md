@@ -96,9 +96,12 @@ Some quick facts computed from the clip:
 
 ```python
 # tasks/locomotion/amp_env_cfg.py
-_AMP_JOINTS_CFG = SceneEntityCfg("robot", joint_names=list(ASIMOV_1_JOINT_NAMES), preserve_order=True)
+_AMP_JOINTS_CFG = SceneEntityCfg(
+    "robot", joint_names=list(ASIMOV_1_JOINT_NAMES), preserve_order=True
+)
 
 ASIMOV_1_AMP_OBS_TERMS = ["joint_pos", "joint_vel"]
+
 
 @configclass
 class AmpObsCfg(ObsGroup):
@@ -114,6 +117,7 @@ class AmpObsCfg(ObsGroup):
             f"{ASIMOV_1_AMP_OBS_TERMS}; the discriminator's policy and expert features "
             "would be misaligned."
         )
+
 
 @configclass
 class Asimov1AmpEnvCfg(Asimov1VelocityEnvCfg):
@@ -159,13 +163,15 @@ discriminator can sample from. It's configured by:
 
 ```python
 # agents/rsl_rl_ppo_cfg.py
-amp_data=MotionDatasetCfg(
-    motion_files=ASIMOV_1_MOTION_FILES,
-    joint_names=list(ASIMOV_1_JOINT_NAMES),
-    body_names=list(ASIMOV_1_KEY_BODY_NAMES),   # both feet, both wrists, waist
-    amp_obs_terms=list(ASIMOV_1_AMP_OBS_TERMS), # ["joint_pos", "joint_vel"]
-    anchor_name=ASIMOV_1_ANCHOR_NAME,           # "pelvis_link"
-),
+amp_data = (
+    MotionDatasetCfg(
+        motion_files=ASIMOV_1_MOTION_FILES,
+        joint_names=list(ASIMOV_1_JOINT_NAMES),
+        body_names=list(ASIMOV_1_KEY_BODY_NAMES),  # both feet, both wrists, waist
+        amp_obs_terms=list(ASIMOV_1_AMP_OBS_TERMS),  # ["joint_pos", "joint_vel"]
+        anchor_name=ASIMOV_1_ANCHOR_NAME,  # "pelvis_link"
+    ),
+)
 ```
 
 The important parts of `load_motions`, simplified:
@@ -184,7 +190,7 @@ for f in self.motion_files:
     # ... validate fps is a scalar ...
     file_joint_names = [str(n) for n in data["joint_names"]]
     joint_ids = [file_joint_names.index(name) for name in self.joint_names]  # reorder
-    joint_pos = data["joint_pos"][:, joint_ids] - joint_pos_offset           # make relative
+    joint_pos = data["joint_pos"][:, joint_ids] - joint_pos_offset  # make relative
     joint_vel = data["joint_vel"][:, joint_ids]
     ...
 ```
@@ -231,9 +237,9 @@ For our single clip: 2,471 valid transitions.
 ```python
 def feed_forward_generator(self, num_mini_batch, mini_batch_size):
     for _ in range(num_mini_batch):
-        t, tp1 = self.sample_batch(mini_batch_size)      # uniform, with replacement
+        t, tp1 = self.sample_batch(mini_batch_size)  # uniform, with replacement
         state_features, next_state_features = [], []
-        for term in self.observation_terms:              # ["joint_pos", "joint_vel"]
+        for term in self.observation_terms:  # ["joint_pos", "joint_vel"]
             data = getattr(self, term)
             state_features.append(data[t])
             next_state_features.append(data[tp1])
@@ -259,18 +265,24 @@ against the environment's actual `amp` group size.
 
 ```python
 class AMPDiscriminator(nn.Module):
-    def __init__(self, observation_dim, hidden_dims=(256, 256), activation="relu",
-                 feature_normalization=True, device="cpu"):
+    def __init__(
+        self,
+        observation_dim,
+        hidden_dims=(256, 256),
+        activation="relu",
+        feature_normalization=True,
+        device="cpu",
+    ):
         super().__init__()
-        self.input_dim = 2 * observation_dim            # (s_t, s_t+1) → 92
+        self.input_dim = 2 * observation_dim  # (s_t, s_t+1) → 92
         layers = []
         current_dim = self.input_dim
         for hidden_dim in hidden_dims:
             layers.append(nn.Linear(current_dim, hidden_dim))
             layers.append(resolve_nn_activation(activation))
             current_dim = hidden_dim
-        self.trunk = nn.Sequential(*layers)            # 92 → 256 → 256
-        self.linear = nn.Linear(current_dim, 1)         # 256 → 1 (the "head")
+        self.trunk = nn.Sequential(*layers)  # 92 → 256 → 256
+        self.linear = nn.Linear(current_dim, 1)  # 256 → 1 (the "head")
         if feature_normalization:
             self.feature_norm = AMPFeatureNormalizer(observation_dim)
 
@@ -289,8 +301,8 @@ In `AMPPPO._joint_update`:
 ```python
 policy_d = self.discriminator(torch.cat((norm_policy_state, norm_policy_next_state), dim=-1))
 expert_d = self.discriminator(torch.cat((norm_expert_state, norm_expert_next_state), dim=-1))
-expert_loss = nn.functional.mse_loss(expert_d, torch.ones_like(expert_d))    # expert → +1
-policy_loss = nn.functional.mse_loss(policy_d, -torch.ones_like(policy_d))   # policy → −1
+expert_loss = nn.functional.mse_loss(expert_d, torch.ones_like(expert_d))  # expert → +1
+policy_loss = nn.functional.mse_loss(policy_d, -torch.ones_like(policy_d))  # policy → −1
 amp_loss = 0.5 * (expert_loss + policy_loss)
 ```
 
@@ -335,11 +347,18 @@ like the clip.
 
 ```python
 def compute_grad_pen(self, expert_state, expert_next_state, lambda_=10.0):
-    expert_transition = torch.cat((expert_state, expert_next_state), dim=-1).detach().requires_grad_(True)
+    expert_transition = (
+        torch.cat((expert_state, expert_next_state), dim=-1).detach().requires_grad_(True)
+    )
     prediction = self(expert_transition)
-    gradient = autograd.grad(outputs=prediction, inputs=expert_transition,
-                             grad_outputs=torch.ones_like(prediction),
-                             create_graph=True, retain_graph=True, only_inputs=True)[0]
+    gradient = autograd.grad(
+        outputs=prediction,
+        inputs=expert_transition,
+        grad_outputs=torch.ones_like(prediction),
+        create_graph=True,
+        retain_graph=True,
+        only_inputs=True,
+    )[0]
     return lambda_ * gradient.norm(2, dim=1).pow(2).mean()
 ```
 
@@ -368,12 +387,20 @@ training from collapsing.
 ### Weight decay on the discriminator
 
 ```python
-self.optimizer.add_param_group({"params": self.discriminator.trunk.parameters(),
-                                "weight_decay": amp_discr_trunk_weight_decay,   # 1e-3
-                                "name": "amp_trunk"})
-self.optimizer.add_param_group({"params": self.discriminator.linear.parameters(),
-                                "weight_decay": amp_discr_head_weight_decay,    # 1e-1
-                                "name": "amp_head"})
+self.optimizer.add_param_group(
+    {
+        "params": self.discriminator.trunk.parameters(),
+        "weight_decay": amp_discr_trunk_weight_decay,  # 1e-3
+        "name": "amp_trunk",
+    }
+)
+self.optimizer.add_param_group(
+    {
+        "params": self.discriminator.linear.parameters(),
+        "weight_decay": amp_discr_head_weight_decay,  # 1e-1
+        "name": "amp_head",
+    }
+)
 ```
 
 The discriminator's parameters join PPO's Adam optimizer as two extra
@@ -463,18 +490,18 @@ class AMPReplayBuffer:
     @torch.no_grad()
     def insert(self, states, next_states):
         ...
-        if len(states) >= self.capacity:          # batch bigger than the buffer:
-            self.states.copy_(states[-self.capacity:])   # keep only the newest
+        if len(states) >= self.capacity:  # batch bigger than the buffer:
+            self.states.copy_(states[-self.capacity :])  # keep only the newest
             ...
             return
         end = self._cursor + len(states)
-        if end <= self.capacity:                  # fits without wrapping
-            self.states[self._cursor:end].copy_(states)
+        if end <= self.capacity:  # fits without wrapping
+            self.states[self._cursor : end].copy_(states)
             ...
-        else:                                     # wraps around the end
+        else:  # wraps around the end
             first_count = self.capacity - self._cursor
-            self.states[self._cursor:].copy_(states[:first_count])
-            self.states[:end - self.capacity].copy_(states[first_count:])
+            self.states[self._cursor :].copy_(states[:first_count])
+            self.states[: end - self.capacity].copy_(states[first_count:])
             ...
         self._cursor = end % self.capacity
         self.num_samples = min(self.capacity, self.num_samples + len(states))
@@ -518,10 +545,10 @@ def construct_algorithm(obs, env, cfg, device):
 
     amp_obs_key = alg_cfg.get("amp_obs_key", "amp")
     if amp_obs_key not in obs.keys():
-        raise ValueError(...)            # the env has no "amp" group
+        raise ValueError(...)  # the env has no "amp" group
     amp_obs_dim = obs[amp_obs_key].shape[-1]
     if amp_obs_dim != amp_data.observation_dim:
-        raise ValueError(...)            # env features ≠ dataset features
+        raise ValueError(...)  # env features ≠ dataset features
 
     alg_cfg["amp_observation_dim"] = amp_obs_dim
     alg_cfg["amp_data"] = amp_data
@@ -547,20 +574,24 @@ is named after exactly this property.)
 
 ```python
 def process_env_step(self, obs, rewards, dones, extras):
-    amp_state = self.transition.observations[self.amp_obs_key]     # s_t (stored by act())
-    amp_next_state = obs[self.amp_obs_key]                          # s_{t+1}
+    amp_state = self.transition.observations[self.amp_obs_key]  # s_t (stored by act())
+    amp_next_state = obs[self.amp_obs_key]  # s_{t+1}
     if self.amp_rollout_obs_clip is not None:
         done_mask = dones.bool()
         if torch.any(done_mask):
             amp_next_state = amp_next_state.clone()
             amp_next_state[done_mask] = amp_next_state[done_mask].clamp(-500, 500)
-    amp_rewards, discriminator_predictions = self.discriminator.predict_amp_reward(amp_state, amp_next_state)
-    amp_rewards = self.amp_reward_coef * amp_rewards               # × 0.3
+    amp_rewards, discriminator_predictions = self.discriminator.predict_amp_reward(
+        amp_state, amp_next_state
+    )
+    amp_rewards = self.amp_reward_coef * amp_rewards  # × 0.3
     gate = self._amp_command_gate()
-    self.amp_storage.insert(amp_state, amp_next_state)             # → replay buffer
+    self.amp_storage.insert(amp_state, amp_next_state)  # → replay buffer
     if gate is not None:
         amp_rewards = amp_rewards * gate
-    total_rewards = (1.0 - self.amp_task_reward_lerp) * amp_rewards + self.amp_task_reward_lerp * rewards
+    total_rewards = (
+        1.0 - self.amp_task_reward_lerp
+    ) * amp_rewards + self.amp_task_reward_lerp * rewards
 
     log = extras.setdefault("log", {})
     log["Train/mean_amp_reward"] = amp_rewards.mean()
@@ -580,7 +611,7 @@ Step by step:
 3. **Gate by command.** With `amp_reward_command_gate=True`, threshold 0.1:
 
    ```python
-   command_norm = torch.linalg.norm(command[:, :3], dim=1)   # ‖[vx, vy, ωz]‖
+   command_norm = torch.linalg.norm(command[:, :3], dim=1)  # ‖[vx, vy, ωz]‖
    gate = (command_norm > 0.1).float()
    ```
 

@@ -257,11 +257,17 @@ flat ground in sim, that's efficient. On real cobblestones, it trips.
 ### 5. `air_time` (+0.5)
 
 ```python
-def feet_air_time(env, sensor_name, threshold_min=0.05, threshold_max=0.5,
-                  command_name=None, command_threshold=0.5):
-    current_air_time = sensor.data.current_air_time          # [N, 2]
+def feet_air_time(
+    env,
+    sensor_name,
+    threshold_min=0.05,
+    threshold_max=0.5,
+    command_name=None,
+    command_threshold=0.5,
+):
+    current_air_time = sensor.data.current_air_time  # [N, 2]
     in_range = (current_air_time > threshold_min) & (current_air_time < threshold_max)
-    reward = torch.sum(in_range.float(), dim=1)               # 0, 1 or 2
+    reward = torch.sum(in_range.float(), dim=1)  # 0, 1 or 2
     ...
     if command_name is not None:
         reward = reward * _command_active(env, command_name, command_threshold)
@@ -307,13 +313,17 @@ class feet_swing_height(ManagerTermBase):
     def __call__(self, env, sensor_name, target_height, command_name, command_threshold, asset_cfg):
         foot_heights = foot_pos_w(env, asset_cfg)[:, :, 2]
         in_air = ~_contact_flags(sensor)
-        self._peak_heights = torch.where(in_air, torch.maximum(self._peak_heights, foot_heights), self._peak_heights)
+        self._peak_heights = torch.where(
+            in_air, torch.maximum(self._peak_heights, foot_heights), self._peak_heights
+        )
         first_contact = sensor.compute_first_contact(dt=env.step_dt)
         active = _command_active(env, command_name, command_threshold)
         error = self._peak_heights / target_height - 1.0
         cost = torch.sum(torch.square(error) * first_contact.float(), dim=1) * active
         ...
-        self._peak_heights = torch.where(first_contact, torch.zeros_like(self._peak_heights), self._peak_heights)
+        self._peak_heights = torch.where(
+            first_contact, torch.zeros_like(self._peak_heights), self._peak_heights
+        )
         return cost
 ```
 
@@ -344,7 +354,9 @@ def feet_orientation_penalty(env, asset_cfg=...):
     gravity = torch.tensor([0.0, 0.0, -1.0], device=env.device)
     penalty = torch.zeros(env.num_envs, device=env.device)
     for i in range(body_quats.shape[1]):
-        grav_local = math_utils.quat_apply_inverse(body_quats[:, i], gravity.expand(env.num_envs, -1))
+        grav_local = math_utils.quat_apply_inverse(
+            body_quats[:, i], gravity.expand(env.num_envs, -1)
+        )
         penalty += torch.norm(grav_local[:, :2], dim=-1)
     return penalty
 ```
@@ -434,10 +446,10 @@ class angular_momentum_penalty(ManagerTermBase):
         self._total_mass = self._masses.sum(dim=1, keepdim=True)
 
     def __call__(self, env, asset_cfg=_DEFAULT_ASSET_CFG):
-        pos = asset.data.body_com_pos_w                   # [N, B, 3]
-        vel = asset.data.body_com_lin_vel_w               # [N, B, 3]
-        m = self._masses.unsqueeze(-1)                    # [N, B, 1]
-        com = (m * pos).sum(dim=1) / self._total_mass     # whole-body CoM
+        pos = asset.data.body_com_pos_w  # [N, B, 3]
+        vel = asset.data.body_com_lin_vel_w  # [N, B, 3]
+        m = self._masses.unsqueeze(-1)  # [N, B, 1]
+        com = (m * pos).sum(dim=1) / self._total_mass  # whole-body CoM
         com_vel = (m * vel).sum(dim=1) / self._total_mass
         r = pos - com.unsqueeze(1)
         v = vel - com_vel.unsqueeze(1)
@@ -477,7 +489,7 @@ a policy trained without this term will do casually.
 
 ```python
 def self_collision_cost(env, sensor_name, force_threshold=10.0):
-    force_matrix = sensor.data.force_matrix_w          # [N, watched, filtered, 3]
+    force_matrix = sensor.data.force_matrix_w  # [N, watched, filtered, 3]
     hit = force_matrix.norm(dim=-1) > force_threshold
     return hit.sum(dim=(1, 2)).float()
 ```

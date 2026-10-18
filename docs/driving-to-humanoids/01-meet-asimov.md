@@ -21,7 +21,9 @@ disk?*
 _REPOSITORY_ROOT = Path(__file__).resolve().parents[5]
 ASIMOV_1_MODEL_DIR = str(_REPOSITORY_ROOT / "third_party" / "asimov-1" / "sim-model")
 ASIMOV_1_URDF_PATH = str(
-    Path(os.environ.get("ASIMOV_1_MODEL_DIR", ASIMOV_1_MODEL_DIR)).expanduser() / "urdf" / "asimov_1.urdf"
+    Path(os.environ.get("ASIMOV_1_MODEL_DIR", ASIMOV_1_MODEL_DIR)).expanduser()
+    / "urdf"
+    / "asimov_1.urdf"
 )
 ```
 
@@ -74,29 +76,29 @@ Chapter 10):
 
 ```python
 ASIMOV_1_JOINT_NAMES = [
-    "left_hip_pitch_joint",      #  0
-    "left_hip_roll_joint",       #  1
-    "left_hip_yaw_joint",        #  2
-    "left_knee_joint",           #  3
-    "left_ankle_pitch_joint",    #  4
-    "left_ankle_roll_joint",     #  5
-    "right_hip_pitch_joint",     #  6
-    "right_hip_roll_joint",      #  7
-    "right_hip_yaw_joint",       #  8
-    "right_knee_joint",          #  9
-    "right_ankle_pitch_joint",   # 10
-    "right_ankle_roll_joint",    # 11
-    "waist_yaw_joint",           # 12
-    "right_shoulder_pitch_joint",# 13
-    "right_shoulder_roll_joint", # 14
+    "left_hip_pitch_joint",  #  0
+    "left_hip_roll_joint",  #  1
+    "left_hip_yaw_joint",  #  2
+    "left_knee_joint",  #  3
+    "left_ankle_pitch_joint",  #  4
+    "left_ankle_roll_joint",  #  5
+    "right_hip_pitch_joint",  #  6
+    "right_hip_roll_joint",  #  7
+    "right_hip_yaw_joint",  #  8
+    "right_knee_joint",  #  9
+    "right_ankle_pitch_joint",  # 10
+    "right_ankle_roll_joint",  # 11
+    "waist_yaw_joint",  # 12
+    "right_shoulder_pitch_joint",  # 13
+    "right_shoulder_roll_joint",  # 14
     "right_shoulder_yaw_joint",  # 15
-    "right_elbow_joint",         # 16
-    "right_wrist_yaw_joint",     # 17
-    "left_shoulder_pitch_joint", # 18
+    "right_elbow_joint",  # 16
+    "right_wrist_yaw_joint",  # 17
+    "left_shoulder_pitch_joint",  # 18
     "left_shoulder_roll_joint",  # 19
-    "left_shoulder_yaw_joint",   # 20
-    "left_elbow_joint",          # 21
-    "left_wrist_yaw_joint",      # 22
+    "left_shoulder_yaw_joint",  # 20
+    "left_elbow_joint",  # 21
+    "left_wrist_yaw_joint",  # 22
 ]
 ```
 
@@ -155,7 +157,7 @@ The robot needs a "home" configuration. That's `ASIMOV_1_STANDING_INIT_STATE`:
 
 ```python
 ASIMOV_1_STANDING_INIT_STATE = ArticulationCfg.InitialStateCfg(
-    pos=(0.0, 0.0, 0.639),      # pelvis spawns 63.9 cm above the ground
+    pos=(0.0, 0.0, 0.639),  # pelvis spawns 63.9 cm above the ground
     joint_pos={
         "left_hip_pitch_joint": -0.15,
         "right_hip_pitch_joint": 0.15,

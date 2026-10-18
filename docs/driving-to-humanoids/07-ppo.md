@@ -253,9 +253,9 @@ changes per update, measured by the KL divergence between old and new action
 distributions:
 
 ```python
-if kl_mean > self.desired_kl * 2.0:            # changing too fast (KL > 0.02)
+if kl_mean > self.desired_kl * 2.0:  # changing too fast (KL > 0.02)
     self.learning_rate = max(1e-5, self.learning_rate / 1.5)
-elif kl_mean < self.desired_kl / 2.0 and kl_mean > 0.0:   # too slow (KL < 0.005)
+elif kl_mean < self.desired_kl / 2.0 and kl_mean > 0.0:  # too slow (KL < 0.005)
     self.learning_rate = min(1e-2, self.learning_rate * 1.5)
 for param_group in self.optimizer.param_groups:
     param_group["lr"] = self.learning_rate
@@ -279,8 +279,10 @@ discriminator's learning rate is also driven by the *policy's* KL.
 ## 7.7 Gradient clipping
 
 ```python
-max_grad_norm=1.0
+max_grad_norm = 1.0
 ...
+
+
 def _clip_actor_critic_gradients(self):
     return nn.utils.clip_grad_norm_(
         chain(self.actor.parameters(), self.critic.parameters()),
@@ -305,14 +307,20 @@ class Asimov1PPORunnerCfg(RslRlOnPolicyRunnerCfg):
     experiment_name = "asimov1_velocity"
     run_name = "ppo"
     obs_groups = {"actor": ["policy"], "critic": ["critic"]}
-    actor = RslRlMLPModelCfg(hidden_dims=[512, 256, 128], activation="elu", obs_normalization=False,
-                             distribution_cfg=RslRlMLPModelCfg.GaussianDistributionCfg(init_std=1.0, std_type="scalar"))
-    critic = RslRlMLPModelCfg(hidden_dims=[512, 256, 128], activation="elu", obs_normalization=False)
+    actor = RslRlMLPModelCfg(
+        hidden_dims=[512, 256, 128],
+        activation="elu",
+        obs_normalization=False,
+        distribution_cfg=RslRlMLPModelCfg.GaussianDistributionCfg(init_std=1.0, std_type="scalar"),
+    )
+    critic = RslRlMLPModelCfg(
+        hidden_dims=[512, 256, 128], activation="elu", obs_normalization=False
+    )
     algorithm = RslRlPpoAlgorithmCfg(
         optimizer="adam",
         normalize_advantage_per_mini_batch=False,
-        rnd_cfg=None,             # no curiosity (Random Network Distillation)
-        symmetry_cfg=None,        # no left/right symmetry augmentation
+        rnd_cfg=None,  # no curiosity (Random Network Distillation)
+        symmetry_cfg=None,  # no left/right symmetry augmentation
         value_loss_coef=1.0,
         use_clipped_value_loss=True,
         clip_param=0.2,

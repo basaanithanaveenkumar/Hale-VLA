@@ -54,8 +54,14 @@ the same batch format. `dataloader/stages/` lists the pretrain / mid-train / pos
 ```python
 from dataloader.eo_dataset import build_eo_dataloader
 
-loader = build_eo_dataloader(subset="qa-task_planning", batch_size=4,
-                             max_seq_len=512, action_dim=32, state_dim=32,
-                             max_samples=1000, shuffle=True)
+loader = build_eo_dataloader(
+    subset="qa-task_planning",
+    batch_size=4,
+    max_seq_len=512,
+    action_dim=32,
+    state_dim=32,
+    max_samples=1000,
+    shuffle=True,
+)
 batch = next(iter(loader))
 ```

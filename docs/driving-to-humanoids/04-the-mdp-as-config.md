@@ -35,12 +35,12 @@ section, and each section is handled by a manager:
 @configclass
 class Asimov1VelocityEnvCfg(ManagerBasedRLEnvCfg):
     scene: Asimov1SceneCfg = Asimov1SceneCfg(num_envs=4096, env_spacing=2.5)  # the world
-    observations: ObservationsCfg = ObservationsCfg()   # what the agent sees
-    actions: ActionsCfg = ActionsCfg()                   # what the agent controls
-    commands: CommandsCfg = CommandsCfg()                # what the agent is asked to do
-    rewards: RewardsCfg = RewardsCfg()                   # how it's scored
-    terminations: TerminationsCfg = TerminationsCfg()    # when episodes end
-    events: EventCfg = EventCfg()                        # randomization and disturbances
+    observations: ObservationsCfg = ObservationsCfg()  # what the agent sees
+    actions: ActionsCfg = ActionsCfg()  # what the agent controls
+    commands: CommandsCfg = CommandsCfg()  # what the agent is asked to do
+    rewards: RewardsCfg = RewardsCfg()  # how it's scored
+    terminations: TerminationsCfg = TerminationsCfg()  # when episodes end
+    events: EventCfg = EventCfg()  # randomization and disturbances
 ```
 
 > 🚗 **Driving Déjà Vu**
@@ -57,13 +57,13 @@ class Asimov1VelocityEnvCfg(ManagerBasedRLEnvCfg):
 
 ```python
 COBBLESTONE_ROAD_CFG = terrain_gen.TerrainGeneratorCfg(
-    size=(8.0, 8.0),          # each tile is 8 m × 8 m
-    border_width=20.0,        # flat border around the whole grid
+    size=(8.0, 8.0),  # each tile is 8 m × 8 m
+    border_width=20.0,  # flat border around the whole grid
     num_rows=9,
-    num_cols=21,              # 9 × 21 = 189 tiles
+    num_cols=21,  # 9 × 21 = 189 tiles
     difficulty_range=(0.0, 1.0),
     use_cache=False,
-    curriculum=False,         # no difficulty progression
+    curriculum=False,  # no difficulty progression
     sub_terrains={
         "flat": terrain_gen.MeshPlaneTerrainCfg(proportion=0.2),
         "random_rough": terrain_gen.HfRandomUniformTerrainCfg(
@@ -104,7 +104,7 @@ terrain = TerrainImporterCfg(
     prim_path="/World/ground",
     terrain_type="generator",
     terrain_generator=COBBLESTONE_ROAD_CFG,
-    max_init_terrain_level=COBBLESTONE_ROAD_CFG.num_rows - 1,   # = 8
+    max_init_terrain_level=COBBLESTONE_ROAD_CFG.num_rows - 1,  # = 8
     collision_group=-1,
     physics_material=sim_utils.RigidBodyMaterialCfg(
         friction_combine_mode="multiply",
@@ -260,17 +260,24 @@ class PolicyCfg(ObsGroup):
         noise=Unoise(n_min=-0.02, n_max=0.02),
     )
     command = ObsTerm(func=mdp.generated_commands, params={"command_name": "twist"})
-    joint_pos_slot01 = ObsTerm(func=mdp.joint_pos_rel, params={"asset_cfg": _slot_cfg(SLOT_0_1)}, noise=Unoise(-0.01, 0.01))
-    joint_pos_slot23 = ...   # same, SLOT_2_3
-    joint_pos_slot45 = ...   # same, SLOT_4_5
-    joint_vel_slot01 = ObsTerm(func=mdp.joint_vel_rel, params={"asset_cfg": _slot_cfg(SLOT_0_1)}, noise=Unoise(-0.5, 0.5), scale=0.1)
+    joint_pos_slot01 = ObsTerm(
+        func=mdp.joint_pos_rel, params={"asset_cfg": _slot_cfg(SLOT_0_1)}, noise=Unoise(-0.01, 0.01)
+    )
+    joint_pos_slot23 = ...  # same, SLOT_2_3
+    joint_pos_slot45 = ...  # same, SLOT_4_5
+    joint_vel_slot01 = ObsTerm(
+        func=mdp.joint_vel_rel,
+        params={"asset_cfg": _slot_cfg(SLOT_0_1)},
+        noise=Unoise(-0.5, 0.5),
+        scale=0.1,
+    )
     joint_vel_slot23 = ...
     joint_vel_slot45 = ...
     actions = ObsTerm(func=mdp.last_action)
 
     def __post_init__(self):
-        self.enable_corruption = True     # noise ON
-        self.concatenate_terms = True     # one flat vector
+        self.enable_corruption = True  # noise ON
+        self.concatenate_terms = True  # one flat vector
 ```
 
 (Abbreviated slightly; see the source for the full version.)
@@ -345,23 +352,34 @@ Here's a subtle detail. Joint positions and velocities are *not* observed in
 `ASIMOV_1_JOINT_NAMES` order. They're split into three "slots":
 
 ```python
-SLOT_0_1 = (   # the 1st and 2nd joint of each limb chain, plus the waist
-    "left_hip_pitch_joint", "left_hip_roll_joint",
-    "right_hip_pitch_joint", "right_hip_roll_joint",
+SLOT_0_1 = (  # the 1st and 2nd joint of each limb chain, plus the waist
+    "left_hip_pitch_joint",
+    "left_hip_roll_joint",
+    "right_hip_pitch_joint",
+    "right_hip_roll_joint",
     "waist_yaw_joint",
-    "right_shoulder_pitch_joint", "right_shoulder_roll_joint",
-    "left_shoulder_pitch_joint", "left_shoulder_roll_joint",
+    "right_shoulder_pitch_joint",
+    "right_shoulder_roll_joint",
+    "left_shoulder_pitch_joint",
+    "left_shoulder_roll_joint",
 )
-SLOT_2_3 = (   # the 3rd and 4th joint of each limb chain
-    "left_hip_yaw_joint", "left_knee_joint",
-    "right_hip_yaw_joint", "right_knee_joint",
-    "right_shoulder_yaw_joint", "right_elbow_joint",
-    "left_shoulder_yaw_joint", "left_elbow_joint",
+SLOT_2_3 = (  # the 3rd and 4th joint of each limb chain
+    "left_hip_yaw_joint",
+    "left_knee_joint",
+    "right_hip_yaw_joint",
+    "right_knee_joint",
+    "right_shoulder_yaw_joint",
+    "right_elbow_joint",
+    "left_shoulder_yaw_joint",
+    "left_elbow_joint",
 )
-SLOT_4_5 = (   # the 5th and 6th joint of each limb chain
-    "left_ankle_pitch_joint", "left_ankle_roll_joint",
-    "right_ankle_pitch_joint", "right_ankle_roll_joint",
-    "right_wrist_yaw_joint", "left_wrist_yaw_joint",
+SLOT_4_5 = (  # the 5th and 6th joint of each limb chain
+    "left_ankle_pitch_joint",
+    "left_ankle_roll_joint",
+    "right_ankle_pitch_joint",
+    "right_ankle_roll_joint",
+    "right_wrist_yaw_joint",
+    "left_wrist_yaw_joint",
 )
 ```
 
@@ -393,7 +411,6 @@ functions directly. They go through a custom class in `mdp/observations.py`:
 
 ```python
 class delayed_obs(ManagerTermBase):
-
     _QUANTITIES = {
         "base_ang_vel": base_mdp.base_ang_vel,
         "projected_gravity": base_mdp.projected_gravity,
@@ -404,14 +421,18 @@ class delayed_obs(ManagerTermBase):
         self._min_lag = int(cfg.params["min_lag"])
         self._max_lag = int(cfg.params["max_lag"])
         self._fn = self._QUANTITIES[cfg.params["quantity"]]
-        self._lags = torch.randint(self._min_lag, self._max_lag + 1, (env.num_envs,), device=env.device)
+        self._lags = torch.randint(
+            self._min_lag, self._max_lag + 1, (env.num_envs,), device=env.device
+        )
         self._buffer: torch.Tensor | None = None
         self._pending_reset: torch.Tensor | None = None
 
     def reset(self, env_ids: torch.Tensor | None = None):
         if env_ids is None:
             env_ids = torch.arange(self._env.num_envs, device=self._env.device)
-        self._lags[env_ids] = torch.randint(self._min_lag, self._max_lag + 1, (len(env_ids),), device=self._env.device)
+        self._lags[env_ids] = torch.randint(
+            self._min_lag, self._max_lag + 1, (len(env_ids),), device=self._env.device
+        )
         self._pending_reset = env_ids
 
     def __call__(self, env, quantity, min_lag, max_lag) -> torch.Tensor:
@@ -500,17 +521,19 @@ The foot helpers in `mdp/observations.py` are short and worth reading:
 ```python
 FOOT_SITE_OFFSET = (0.05, 0.0, -0.025)
 
+
 def foot_pos_w(env, asset_cfg=_DEFAULT_FEET_CFG, offset=FOOT_SITE_OFFSET):
     asset = env.scene[asset_cfg.name]
-    pos = asset.data.body_link_pos_w[:, asset_cfg.body_ids]      # [N, 2, 3]
-    quat = asset.data.body_link_quat_w[:, asset_cfg.body_ids]    # [N, 2, 4]
+    pos = asset.data.body_link_pos_w[:, asset_cfg.body_ids]  # [N, 2, 3]
+    quat = asset.data.body_link_quat_w[:, asset_cfg.body_ids]  # [N, 2, 4]
     off = torch.tensor(offset, device=env.device).expand(pos.shape[0], pos.shape[1], 3)
-    return pos + math_utils.quat_apply(quat, off)                # sole point in world
+    return pos + math_utils.quat_apply(quat, off)  # sole point in world
+
 
 def foot_vel_w(env, asset_cfg=_DEFAULT_FEET_CFG, offset=FOOT_SITE_OFFSET):
     ...
     r = math_utils.quat_apply(quat, off)
-    return lin_vel + torch.cross(ang_vel, r, dim=-1)             # v_point = v + ω × r
+    return lin_vel + torch.cross(ang_vel, r, dim=-1)  # v_point = v + ω × r
 ```
 
 `foot_vel_w` is rigid-body kinematics you learned in physics class: the

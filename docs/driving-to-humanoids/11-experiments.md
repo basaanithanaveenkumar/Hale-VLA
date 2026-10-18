@@ -87,10 +87,10 @@ def feet_too_close(
     min_distance: float = 0.15,
     asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
 ) -> torch.Tensor:
-    feet_xy = foot_pos_w(env, asset_cfg)[:, :, :2]            # [N, 2, 2]
+    feet_xy = foot_pos_w(env, asset_cfg)[:, :, :2]  # [N, 2, 2]
     distance = torch.norm(feet_xy[:, 0] - feet_xy[:, 1], dim=-1)
     env.extras.setdefault("log", {})["Metrics/feet_distance_mean"] = torch.mean(distance)
-    return torch.clamp(min_distance - distance, min=0.0)      # hinge: 0 when far enough
+    return torch.clamp(min_distance - distance, min=0.0)  # hinge: 0 when far enough
 ```
 
 Everything here follows the repo's conventions: vectorized over
@@ -105,6 +105,7 @@ available as `mdp.feet_too_close` automatically.
 ```python
 from isaaclab.managers import RewardTermCfg as RewTerm
 from .velocity_env_cfg import _feet_cfg
+
 
 @configclass
 class Asimov1FeetSpacingEnvCfg(Asimov1AmpEnvCfg):
@@ -143,15 +144,26 @@ HARDER_TERRAIN_CFG = COBBLESTONE_ROAD_CFG.replace(
     sub_terrains={
         "flat": terrain_gen.MeshPlaneTerrainCfg(proportion=0.2),
         "random_rough": terrain_gen.HfRandomUniformTerrainCfg(
-            proportion=0.2, noise_range=(0.02, 0.05), noise_step=0.02,
-            horizontal_scale=0.1, vertical_scale=0.005, border_width=0.25,
+            proportion=0.2,
+            noise_range=(0.02, 0.05),
+            noise_step=0.02,
+            horizontal_scale=0.1,
+            vertical_scale=0.005,
+            border_width=0.25,
         ),
         "slope": terrain_gen.HfPyramidSlopedTerrainCfg(
-            proportion=0.2, slope_range=(0.0, 0.2), platform_width=2.0, border_width=0.25,
+            proportion=0.2,
+            slope_range=(0.0, 0.2),
+            platform_width=2.0,
+            border_width=0.25,
         ),
         "stairs_up": terrain_gen.MeshPyramidStairsTerrainCfg(
-            proportion=0.2, step_height_range=(0.02, 0.08), step_width=0.3,
-            platform_width=3.0, border_width=1.0, holes=False,
+            proportion=0.2,
+            step_height_range=(0.02, 0.08),
+            step_width=0.3,
+            platform_width=3.0,
+            border_width=1.0,
+            holes=False,
         ),
     },
 )
@@ -258,7 +270,7 @@ algorithm = AMPPPOAlgorithmCfg(
     symmetry_cfg=RslRlSymmetryCfg(
         use_data_augmentation=True,
         use_mirror_loss=False,
-        data_augmentation_func=mirror_obs_and_actions,   # you write this
+        data_augmentation_func=mirror_obs_and_actions,  # you write this
     ),
 )
 ```

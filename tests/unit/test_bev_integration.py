@@ -30,12 +30,28 @@ IMAGE = (32, 64)
 
 def small_config(**overrides) -> HaloVLMConfig:
     base = dict(
-        emb_dim=64, img_size=32, patch_size=8, vit_num_layers=1, vit_num_heads=4,
-        vit_mlp_dim=64, dec_num_layers=1, dec_num_heads=4, dec_mlp_dim=64, use_moe=False,
-        action_hidden_dims=(64,), state_hidden_dims=(64,), action_dim=4, state_dim=3, action_chunk_size=2,
-        flow_hidden_dim=32, enable_visual_dit=False,
-        bev_num_cameras=4, bev_image_size=IMAGE, bev_resolution=(16, 16, 4),
-        bev_bounds=((-16.0, 16.0), (-16.0, 16.0), (-1.0, 3.0)), bev_channels=16,
+        emb_dim=64,
+        img_size=32,
+        patch_size=8,
+        vit_num_layers=1,
+        vit_num_heads=4,
+        vit_mlp_dim=64,
+        dec_num_layers=1,
+        dec_num_heads=4,
+        dec_mlp_dim=64,
+        use_moe=False,
+        action_hidden_dims=(64,),
+        state_hidden_dims=(64,),
+        action_dim=4,
+        state_dim=3,
+        action_chunk_size=2,
+        flow_hidden_dim=32,
+        enable_visual_dit=False,
+        bev_num_cameras=4,
+        bev_image_size=IMAGE,
+        bev_resolution=(16, 16, 4),
+        bev_bounds=((-16.0, 16.0), (-16.0, 16.0), (-1.0, 3.0)),
+        bev_channels=16,
     )
     base.update(overrides)
     return HaloVLMConfig(**base)
@@ -51,10 +67,15 @@ def scene() -> SceneBatch:
 
 def vla_batch(cfg: HaloVLMConfig, scene: SceneBatch | None = None) -> dict:
     ids = torch.tensor([[cfg.image_token_id, 5, 6, cfg.state_token_id, cfg.action_token_id]] * 2)
-    batch = {"images": torch.rand(2, 1, 3, 32, 32), "input_ids": ids, "attention_mask": torch.ones_like(ids),
-             "labels": ids.clone(), "states": torch.rand(2, 1, cfg.state_dim),
-             "actions": torch.randn(2, cfg.action_chunk_size, cfg.action_dim),
-             "action_mask": torch.ones(2, cfg.action_chunk_size)}
+    batch = {
+        "images": torch.rand(2, 1, 3, 32, 32),
+        "input_ids": ids,
+        "attention_mask": torch.ones_like(ids),
+        "labels": ids.clone(),
+        "states": torch.rand(2, 1, cfg.state_dim),
+        "actions": torch.randn(2, cfg.action_chunk_size, cfg.action_dim),
+        "action_mask": torch.ones(2, cfg.action_chunk_size),
+    }
     if scene is not None:
         batch["bev_images"], batch["bev_cameras"] = scene.images, scene.cameras
     return batch
@@ -67,7 +88,9 @@ def test_bev_scene_encoder_tokens(lifter: str, scene: SceneBatch) -> None:
     assert tokens.shape == (2, enc.num_tokens, 64)
     assert enc.num_tokens == 16  # 16x16 BEV pooled 4x4
     tokens.sum().backward()
-    assert any(p.grad is not None and p.grad.abs().sum() > 0 for p in enc.image_encoder.parameters())
+    assert any(
+        p.grad is not None and p.grad.abs().sum() > 0 for p in enc.image_encoder.parameters()
+    )
 
 
 def test_halo_vlm_with_bev_tokens(scene: SceneBatch) -> None:
@@ -90,33 +113,63 @@ def test_bev_inputs_require_use_bev(scene: SceneBatch) -> None:
     model = HaloVLM(cfg)
     ids = torch.tensor([[cfg.image_token_id, 5]])
     with pytest.raises(ValueError, match="use_bev"):
-        model(torch.rand(1, 1, 3, 32, 32), ids, torch.ones_like(ids), torch.rand(1, 0, cfg.state_dim),
-              bev_images=scene.images[:1], bev_cameras=scene.cameras)
+        model(
+            torch.rand(1, 1, 3, 32, 32),
+            ids,
+            torch.ones_like(ids),
+            torch.rand(1, 0, cfg.state_dim),
+            bev_images=scene.images[:1],
+            bev_cameras=scene.cameras,
+        )
     with pytest.raises(ValueError, match="bev_cameras"):
         HaloVLM(small_config(use_bev=True, bev_lifter="simple_bev"))(
-            torch.rand(1, 1, 3, 32, 32), ids, torch.ones_like(ids), torch.rand(1, 0, cfg.state_dim),
-            bev_images=scene.images[:1])
+            torch.rand(1, 1, 3, 32, 32),
+            ids,
+            torch.ones_like(ids),
+            torch.rand(1, 0, cfg.state_dim),
+            bev_images=scene.images[:1],
+        )
 
 
 def test_world_model_reads_image_slots_after_the_bev_tokens(scene: SceneBatch) -> None:
     """The DiT conditions on decoder states at the image positions, which BEV tokens shift."""
-    cfg = small_config(use_bev=True, bev_lifter="simple_bev", enable_visual_dit=True, dit_patch_size=8,
-                       dit_hidden_size=32, dit_depth=1, dit_num_heads=4, dit_max_resolution=32,
-                       dit_time_freq_dim=32, num_visual_predict_frames=1)
+    cfg = small_config(
+        use_bev=True,
+        bev_lifter="simple_bev",
+        enable_visual_dit=True,
+        dit_patch_size=8,
+        dit_hidden_size=32,
+        dit_depth=1,
+        dit_num_heads=4,
+        dit_max_resolution=32,
+        dit_time_freq_dim=32,
+        num_visual_predict_frames=1,
+    )
     model = HaloVLM(cfg).eval()
     b = vla_batch(cfg)
     b["images"] = torch.rand(2, 2, 3, 32, 32)
-    b["input_ids"] = torch.tensor([[cfg.image_token_id, cfg.image_token_id, 5, cfg.action_token_id]] * 2)
+    b["input_ids"] = torch.tensor(
+        [[cfg.image_token_id, cfg.image_token_id, 5, cfg.action_token_id]] * 2
+    )
     b["attention_mask"] = torch.ones_like(b["input_ids"])
     with torch.no_grad():
-        logits, _, visual_ctx, _ = model(b["images"], b["input_ids"], b["attention_mask"], b["states"],
-                                         bev_images=scene.images, bev_cameras=scene.cameras)
+        logits, _, visual_ctx, _ = model(
+            b["images"],
+            b["input_ids"],
+            b["attention_mask"],
+            b["states"],
+            bev_images=scene.images,
+            bev_cameras=scene.cameras,
+        )
         hidden = model.decoder_transformer(  # recompute the decoder states to read the image slots
-            model._embed_inputs(b["images"], b["input_ids"], b["states"], scene.images, scene.cameras)[0]
+            model._embed_inputs(
+                b["images"], b["input_ids"], b["states"], scene.images, scene.cameras
+            )[0]
             + model.pos_embed(torch.arange(logits.size(1))).unsqueeze(0),
-            pad_mask=torch.ones(2, logits.size(1)))
+            pad_mask=torch.ones(2, logits.size(1)),
+        )
     num_bev, per_image = model.bev_encoder.num_tokens, cfg.num_image_tokens_per_image
-    first_frame = hidden[:, num_bev:num_bev + per_image].mean(1)  # past frame = frame 0
+    first_frame = hidden[:, num_bev : num_bev + per_image].mean(1)  # past frame = frame 0
     torch.testing.assert_close(visual_ctx, first_frame)
 
 
@@ -135,18 +188,30 @@ def test_training_step_offsets_the_language_loss_by_the_bev_tokens(scene: SceneB
     b = vla_batch(cfg, scene)
     model.eval()  # no dropout: both passes see the same network
     with torch.no_grad():
-        logits = model(b["images"], b["input_ids"], b["attention_mask"], b["states"],
-                       bev_images=scene.images, bev_cameras=scene.cameras)[0]
+        logits = model(
+            b["images"],
+            b["input_ids"],
+            b["attention_mask"],
+            b["states"],
+            bev_images=scene.images,
+            bev_cameras=scene.cameras,
+        )[0]
         prefix = model.bev_encoder.num_tokens + cfg.num_image_tokens_per_image
-        torch.testing.assert_close(compute_language_loss(logits, b["labels"], prefix), step(b).lang.detach())
+        torch.testing.assert_close(
+            compute_language_loss(logits, b["labels"], prefix), step(b).lang.detach()
+        )
 
 
 def test_dual_system_system2_sees_the_bev_map(scene: SceneBatch) -> None:
     from dual_system import DualSystemVLA, resolve_dual_system_config
 
     cfg = small_config(use_bev=True, bev_lifter="simple_bev")
-    model = DualSystemVLA(HaloVLM(cfg), resolve_dual_system_config(
-        "basic", {"system1_dim": 32, "system1_layers": 1, "system1_heads": 4, "sample_steps": 2})).eval()
+    model = DualSystemVLA(
+        HaloVLM(cfg),
+        resolve_dual_system_config(
+            "basic", {"system1_dim": 32, "system1_layers": 1, "system1_heads": 4, "sample_steps": 2}
+        ),
+    ).eval()
     with torch.no_grad():
         with_bev = model.encode_latent(vla_batch(cfg, scene))[0]
         without = model.encode_latent(vla_batch(cfg))[0]
