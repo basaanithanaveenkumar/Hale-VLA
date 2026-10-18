@@ -112,3 +112,6 @@ uv.lock
 
 # Checkpoints
 checkpoints/
+
+# configs/deploy/_shared/parts holds config fragments, not a Python build directory
+!configs/deploy/_shared/parts/
