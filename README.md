@@ -28,7 +28,10 @@ A PyTorch-based Vision-Language Model (VLA) implementation combining visual and 
 | **Data** | EO-Data1.5M, DROID, AIRoA MoMa loaders; pretrain / mid-train / post-train dataset registries (`dataloader/stages`) |
 | **Scale-out** | torchrun DDP, Ray Train, WebDataset shards ([docs/distributed.md](docs/distributed.md)) |
 | **Evaluation** | held-out validation with action metrics (L1, RMSE, chunk accuracy, smoothness), language / generation metrics (`src/Halo_VLA/metrics`) |
-| **Notebooks** | backbone guides and the dual-system tutorial (`notebooks/`) |
+| **π family** | π0, π0.5, π0.7 built from first principles at toy scale, one step-by-step notebook each (`src/Halo_VLA/pi_family`, `notebooks/pi_family`, [docs/pi_family.md](docs/pi_family.md)) |
+| **SmolVLA, GR00T N1 / N1.5** | both built from first principles incl. asynchronous inference, embodiment-specific MLPs, latent actions and FLARE (`src/Halo_VLA/open_vlas`, `notebooks/open_vlas`, [docs/open_vlas.md](docs/open_vlas.md)) |
+| **VLA foundations (9 clusters)** | action representations, VLM backbone, FAST, fine-tuning (LoRA/OFT), training pipeline, generalisation, inference/control, 3-D perception, evaluation (`src/Halo_VLA/vla_foundations`, `notebooks/vla_foundations`, [docs/vla_foundations.md](docs/vla_foundations.md)) |
+| **Notebooks** | backbone guides, the dual-system tutorial, the π-family, SmolVLA and GR00T notebooks (`notebooks/`) |
 
 ## Multi-camera BEV scene tokens (Halos-lift)
 
@@ -76,7 +79,7 @@ Hale-VLA/
 │   ├── metrics/            # action, generation, policy metrics
 │   └── rl/                 # REINFORCE / GRPO / DPO / Dreamer
 ├── scripts/                # train.py (--config), inference, visualisation, RL trainers, profiling
-├── notebooks/              # backbone guides, dual-system tutorial
+├── notebooks/              # backbone guides, dual-system tutorial, pi_family (π0 / π0.5 / π0.7), open_vlas (SmolVLA / GR00T), vla_foundations (action heads, VLM backbone)
 ├── tests/                  # pytest suite (offline, CPU)
 └── docs/                   # architecture, configuration, data, guides
 ```
